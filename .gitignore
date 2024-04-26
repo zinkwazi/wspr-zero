@@ -1,2 +1,8 @@
+# Ignore log files
 *.log
+
+# Allow the log directory
+!log/
+
+# Ignore dat files
 *.dat
