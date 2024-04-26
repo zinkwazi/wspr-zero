@@ -1,0 +1,3 @@
+#!/usr/bin/bash
+sleep 60
+sudo /home/pi/wspr-zero/WsprryPi/wspr -r -o -f K6FTP-1 DM04bk 23 30m >> /home/pi/wspr-zero/logs/wspr-transmit.log 2>&1
