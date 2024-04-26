@@ -2,7 +2,7 @@
 *.log
 
 # Allow the log directory
-!log/
+!logs/
 
 # Ignore dat files
 *.dat
