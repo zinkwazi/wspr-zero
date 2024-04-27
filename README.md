@@ -56,11 +56,19 @@ For more details, visit the [official GitHub repository](https://github.com/zink
 
 ## Images
 
-![WSPR-zero setup](images/IMG_9250.jpg "WSPR-zero Setup Overview")
+## Images
+
+### WSPR-zero in Action
 ![WSPR-zero in action](images/IMG_9252.jpg "WSPR-zero in Action")
-![WSPR-zero board close-up](images/IMG_9264.jpg "WSPR-zero Board Close-up")
-![WSPR-zero field deployment](images/IMG_9273.jpg "WSPR-zero Field Deployment")
-![WSPR-zero additional setup](images/IMG_9275.jpg "Additional WSPR-zero Setup")
+*Close-up view of the WSPR-zero assembly and components including WSPR-zero Hat, Raspberry Pi Zero 2 W and UPS-Lite.*
+
+### WSPR-zero Board Close-up
+![WSPR-zero board close-up](images/IMG_9264.jpg "WSPR-zero Board Mobile with Battery")
+*Ready to hit the road.*
+
+### Additional WSPR-zero Setup
+![WSPR-zero additional setup](images/IMG_9275.jpg "WSPR-zero Button")
+*Utility Button to gracefully shut down the Pi if held for 10 seconds or post internal IP info if pressed 5 times.
 
 
 **WSPR-zero Project © 2024 Greg Lawler.** All rights reserved. Visit our [GitHub repository](https://github.com/zinkwazi/wspr-zero) for more information.

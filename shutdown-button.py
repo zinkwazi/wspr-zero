@@ -82,8 +82,8 @@ def button_callback(channel):
             button_presses = 0  # Reset count after sending data
 
     elif GPIO.input(channel) == 1:  # Button released (rising edge)
-        if last_press_time and (time.time() - last_press_time >= 2) and button_presses == 1:
-            logging.info("Button held for 2 seconds. Shutting down...")
+        if last_press_time and (time.time() - last_press_time >= 3) and button_presses == 1:
+            logging.info("Button held for 10 seconds. Shutting down...")
             blink_led()  # Blink LED to indicate shutdown
             os.system("sudo shutdown now -h")
         last_press_time = 0  # Reset the last press time on release
@@ -93,7 +93,7 @@ GPIO.add_event_detect(shutdown_pin, GPIO.BOTH, callback=button_callback, bouncet
 
 # Main loop just waits indefinitely
 try:
-    logging.info("Monitoring for shutdown button press. Hold button for 2 seconds to shutdown or press 5 times to send data.")
+    logging.info("Monitoring utility button. Hold for 10 seconds to shutdown or press 5 times to post data.")
     while True:
         time.sleep(86400)  # Sleep for a day; effectively idle
 except KeyboardInterrupt:
