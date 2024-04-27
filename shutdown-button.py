@@ -6,6 +6,9 @@ import requests
 import socket
 import uuid
 
+# Delay start
+time.sleep(30)  # Delay 30 seconds
+
 # Setup logging
 logging.basicConfig(filename='/var/log/wspr-zero-shutdown.log', level=logging.INFO, format='%(asctime)s %(message)s')
 

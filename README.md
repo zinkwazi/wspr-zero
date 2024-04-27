@@ -54,6 +54,13 @@ Thanks to all contributors from the ham radio community, especially those who ha
 
 For more details, visit the [official GitHub repository](https://github.com/zinkwazi/wspr-zero).
 
-## Footer
+## Images
+
+![WSPR-zero setup](images/IMG_9250.jpg "WSPR-zero Setup Overview")
+![WSPR-zero in action](images/IMG_9252.jpg "WSPR-zero in Action")
+![WSPR-zero board close-up](images/IMG_9264.jpg "WSPR-zero Board Close-up")
+![WSPR-zero field deployment](images/IMG_9273.jpg "WSPR-zero Field Deployment")
+![WSPR-zero additional setup](images/IMG_9275.jpg "Additional WSPR-zero Setup")
+
 
 **WSPR-zero Project © 2024 Greg Lawler.** All rights reserved. Visit our [GitHub repository](https://github.com/zinkwazi/wspr-zero) for more information.
