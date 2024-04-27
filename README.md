@@ -60,9 +60,11 @@ echo "IPQoS 0x00" | sudo tee -a /etc/ssh/sshd_config
 
 Contributions to the WSPR-zero project are welcome! Please refer to the issues tab on GitHub to find tasks that need help or submit your suggestions and contributions via pull requests.
 
-## License
+## Licensing
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- All WSPR transmissions require the operator to be licensed by the FCC (or similar entitiy in other countries) in order to legally transmit.
+- No license is required to use WSPR-zero as a WSPR receiver.
 
 ## Acknowledgments
 
