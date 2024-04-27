@@ -16,6 +16,10 @@ Adding to the fun, every WSPR transmission ever sent or received—is logged to 
 
 Furthermore, WSPR-zero’s open-source nature allows users to dive into the Linux-based system, offering hands-on opportunities to tweak both the software and hardware. This level of accessibility not only enhances learning but also invites innovation and customization, making it a fun project for tech enthusiasts (nerds?) who love to tinker with technology.
 
+### WSPR-zero Board Close-up
+![WSPR-zero in action](images/IMG_9252.jpg "WSPR-zero in Action")
+*Close-up view of the WSPR-zero assembly and components including WSPR-zero Hat, Raspberry Pi Zero 2 W and UPS-Lite.*
+
 ### Features
 
 - **Compatibility**: Primarily developed for the Pi Zero but also works on Pi 3 & 4.
@@ -75,10 +79,6 @@ Thanks to all contributors from the ham radio community, especially those who ha
 For more details, visit the [official GitHub repository](https://github.com/zinkwazi/wspr-zero).
 
 ## Images
-
-### WSPR-zero Board Close-up
-![WSPR-zero in action](images/IMG_9252.jpg "WSPR-zero in Action")
-*Close-up view of the WSPR-zero assembly and components including WSPR-zero Hat, Raspberry Pi Zero 2 W and UPS-Lite.*
 
 ### WSPR-zero in Action
 ![WSPR-zero board close-up](images/IMG_9264.jpg "WSPR-zero Board Mobile with Battery")
