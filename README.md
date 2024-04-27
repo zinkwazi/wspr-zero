@@ -69,11 +69,11 @@ For more details, visit the [official GitHub repository](https://github.com/zink
 *Utility Button to gracefully shut down the Pi if held for 10 seconds or post internal IP info if pressed 5 times.*
 
 ### WSPR-zero Utility Button Log
-![WSPR-zero additional setup](images/Screenshot-utility-button-log.png")
+![WSPR-zero additional setup](images/Screenshot-utility-button-log.png "WSPR-zero log")
 *Utility Button log file showing the two use cases.*
 
 ### wsprnet.org 12 hour map for K6FTP
-![WSPR-zero additional setup](images/"Screenshot-map.png)
+![WSPR-zero additional setup](images/"Screenshot-map.png "WSPR-zero map")
 *Screenshot from wsprnet.org for traffic from WSPR-zero.*
 
 
