@@ -73,7 +73,7 @@ For more details, visit the [official GitHub repository](https://github.com/zink
 *Utility Button log file showing the two use cases.*
 
 ### wsprnet.org 12 hour map for K6FTP
-![WSPR-zero additional setup](images/"Screenshot-map.png "WSPR-zero map")
+![WSPR-zero additional setup](images/Screenshot-map.png "WSPR-zero map")
 *Screenshot from wsprnet.org for traffic from WSPR-zero.*
 
 
