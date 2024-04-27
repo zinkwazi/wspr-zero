@@ -46,7 +46,7 @@ def send_data_to_server():
     hostname = socket.gethostname()
     ip_address = get_ip_address()
     mac_address = get_mac_address()
-    url = "http://www.zinkwazi.com/wspr/index.php"
+    url = "http://www.zinkwazi.com/zero/index.php"
     payload = {'hn': hostname, 'ip': ip_address, 'mac': mac_address}
     try:
         response = requests.get(url, params=payload)
