@@ -56,8 +56,6 @@ For more details, visit the [official GitHub repository](https://github.com/zink
 
 ## Images
 
-## Images
-
 ### WSPR-zero Board Close-up
 ![WSPR-zero in action](images/IMG_9252.jpg "WSPR-zero in Action")
 *Close-up view of the WSPR-zero assembly and components including WSPR-zero Hat, Raspberry Pi Zero 2 W and UPS-Lite.*
@@ -73,6 +71,10 @@ For more details, visit the [official GitHub repository](https://github.com/zink
 ### WSPR-zero Utility Button Log
 ![WSPR-zero additional setup](images/Screenshot-utility-button-log.png")
 *Utility Button log file showing the two use cases.*
+
+### wsprnet.org 12 hour map for K6FTP
+![WSPR-zero additional setup](images/"Screenshot-map.png)
+*Screenshot from wsprnet.org for traffic from WSPR-zero.*
 
 
 **WSPR-zero Project © 2024 Greg Lawler.** All rights reserved. Visit our [GitHub repository](https://github.com/zinkwazi/wspr-zero) for more information.
