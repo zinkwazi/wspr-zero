@@ -1,7 +1,3 @@
-Let's adjust the format so that the entire README.md content is in one continuous block for easy copying:
-
-markdown
-
 # WSPR-zero Project
 
 The WSPR-zero project, developed by Greg Lawler, brings together various community contributions into an easy-to-install package tailored for the Raspberry Pi Zero, although it is also tested on the Raspberry Pi 4. This project aims to provide a small footprint, cost-effective, and ultra-portable solution for transmitting WSPR signals.
