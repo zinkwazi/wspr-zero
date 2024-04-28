@@ -31,7 +31,7 @@ Each WSPR transmission is 110.6 seconds long. This precise duration allows for a
 
 ### WSPR-zero Board Close-up
 ![WSPR-zero in action](images/IMG_9252.jpg "WSPR-zero in Action")
-*Close-up view of the WSPR-zero assembly and components including WSPR-zero Hat, Raspberry Pi Zero 2 W and UPS-Lite.*
+*Close-up view of the WSPR-zero rig including WSPR-zero Hat, Raspberry Pi Zero 2 W and UPS-Lite.*
 
 ### Features
 
