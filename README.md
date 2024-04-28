@@ -29,9 +29,9 @@ Each WSPR transmission is 110.6 seconds long. This precise duration allows for a
 - Antenna of some sort. Simple half dipole wire antenna is easy, cheap and works great!
 - Optional: UPS-Lite board for graceful shutdown when external and UPS-Lite batteries expire
 
-### WSPR-zero Board Close-up
+### Raspberry Pi Zero with WSPR-zero Hat
 ![WSPR-zero in action](images/IMG_9252.jpg "WSPR-zero in Action")
-*Close-up view of the WSPR-zero rig including WSPR-zero Hat, Raspberry Pi Zero 2 W and UPS-Lite.*
+*Close-up view of a Raspberry Pi Zero 2 W, WSPR-zero Hat and UPS-Lite.*
 
 ### Features
 
