@@ -44,7 +44,7 @@ Each WSPR transmission is 110.6 seconds long. This precise duration allows for a
 - **Extended Run Time**: Can easily run for over 24 hours on a portable phone battery pack.
 
 ### Coming in V2
-- **Real Time Clock Headers**
+- **Real Time Clock I2C Headers**
 WSPR relies heavily on accurate time synchronization. Transmitters and receivers must have their clocks synchronized to Universal Time Coordinated (UTC) to within a second or so. This synchronization is critical because slight timing offsets can lead to missed transmissions or failure to decode signals properly.
 - **Install Scripts**
 Scripts to help newcomers get started with minimal effort.
