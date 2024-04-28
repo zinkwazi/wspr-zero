@@ -3,13 +3,12 @@
 WSPR-zero Battery Monitoring Script
 Author: Greg Lawler
 This script monitors the battery level and logs significant events related to battery status.
-Logs are written when the battery percentage is within 5% above the configured shutdown threshold
-and immediately before shutdown if the battery is below the threshold.
-Runs every 10 minutes via crontab.
+It can run with no parameters for production, or with a parameter to output battery stats to the console for testing.
 """
 
 import struct
 import smbus
+import sys
 import os
 import time
 from datetime import datetime
@@ -46,6 +45,12 @@ def main():
 
     voltage = read_voltage(bus)
     capacity = read_capacity(bus)
+
+    # If arguments are provided, print the battery stats to the console
+    if len(sys.argv) > 1:
+        print(f"Testing Mode: Battery Voltage: {voltage:.2f} V, Capacity: {capacity}%")
+        print("This output is for testing purposes. Please run the script with no parameters in production.")
+        return  # Exit after displaying the information
 
     # Log battery details if capacity is between the shutdown threshold and 5% above it
     if BATTERY_SHUTDOWN_THRESHOLD <= capacity <= UPPER_LOGGING_THRESHOLD:
