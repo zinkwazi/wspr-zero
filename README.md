@@ -44,9 +44,9 @@ Each WSPR transmission is 110.6 seconds long. This precise duration allows for a
 - **Extended Run Time**: Can easily run for over 24 hours on a portable phone battery pack.
 
 ### Coming in V2
-- **Real Time Clock I2C Headers**
+- **Real Time Clock I2C Headers: **
 WSPR relies heavily on accurate time synchronization. Transmitters and receivers must have their clocks synchronized to Universal Time Coordinated (UTC) to within a second or so. This synchronization is critical because slight timing offsets can lead to missed transmissions or failure to decode signals properly.
-- **Install Scripts**
+- **Install Scripts: **
 Scripts to help newcomers get started with minimal effort.
 
 ## Installation
@@ -70,13 +70,13 @@ Contributions to the WSPR-zero project are welcome! Please refer to the issues t
 
 ## Licensing
 
-- This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- This project is licensed under the MIT License.
 - All WSPR transmissions require the operator to be licensed by the FCC (or similar entitiy in other countries) in order to legally transmit.
 - No license is required to use WSPR-zero as a WSPR receiver.
 
 ## Acknowledgments
 
-Thanks to all contributors from the ham radio community, especially those who have provided testing feedback and code improvements.
+Thanks to all contributors from the ham radio community, especially those who have provided testing, feedback and code improvements.
 
 ## Support and Documentation
 
