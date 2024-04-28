@@ -23,11 +23,11 @@ Each WSPR transmission is 110.6 seconds long. This precise duration allows for a
 ### Required Hardware
 
 - Raspberry Pi Zero, Pi 3 or Pi 4 (not yet tested on Pi 5)
-- WSPR-zero or TAPR HAT (for transmission)
-- HDMI dummy load dongle (for smoother operation on Pi Zero)
+- WSPR-zero or TAPR.org HAT (for transmission)
 - RTL-SDR USB device (for receiving)
+- HDMI dummy load dongle (prevents crashing upon transmission on Raspberry Pi Zero)
+- Antenna of some sort. Simple half dipole wire antenna is easy, cheap and works great!
 - Optional: UPS-Lite board for graceful shutdown when external and UPS-Lite batteries expire
-- Antenna of some sort. Simple wire antenna is easy, cheap and works great!
 
 ### WSPR-zero Board Close-up
 ![WSPR-zero in action](images/IMG_9252.jpg "WSPR-zero in Action")
@@ -98,7 +98,11 @@ For more details, visit the [official GitHub repository](https://github.com/zink
 
 ### wsprnet.org 12 hour map for K6FTP
 ![WSPR-zero additional setup](images/Screenshot-map.png "WSPR-zero map")
-*Screenshot from wsprnet.org for traffic from WSPR-zero.*
+*Screenshot from wsprnet.org for traffic from a WSPR-zero using a $4 half dipole 30m wire antenna draped on a hedge.*
+
+### WSPR-zero v2 Board Render
+![WSPR-zero additional setup](images/WSPR-zero-v2.jpg "WSPR-zero map")
+*Render of v2 of the WSPR-zero Hat with RTC header - coming soon.**
 
 
 **WSPR-zero Project © 2024 Greg Lawler.** All rights reserved. Visit our [GitHub repository](https://github.com/zinkwazi/wspr-zero) for more information.
