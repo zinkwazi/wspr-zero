@@ -3,7 +3,8 @@
 WSPR-zero Battery Monitoring Script
 Author: Greg Lawler
 This script monitors the battery level and logs significant events related to battery status.
-Logs are written only when the battery percentage is within 5% above the configured shutdown threshold.
+Logs are written when the battery percentage is within 5% above the configured shutdown threshold
+and immediately before shutdown if the battery is below the threshold.
 Runs every 10 minutes via crontab.
 """
 
@@ -46,14 +47,15 @@ def main():
     voltage = read_voltage(bus)
     capacity = read_capacity(bus)
 
-    # Log battery details only if capacity is between the shutdown threshold and 5% above it
+    # Log battery details if capacity is between the shutdown threshold and 5% above it
     if BATTERY_SHUTDOWN_THRESHOLD <= capacity <= UPPER_LOGGING_THRESHOLD:
         log_event(f"Battery Voltage: {voltage:.2f} V")
         log_event(f"Battery Capacity: {capacity}%")
 
     # Check for shutdown condition
     if capacity < BATTERY_SHUTDOWN_THRESHOLD:
-        log_event("Battery below threshold; shutting down.")
+        # Log before shutdown
+        log_event(f"Initiating shutdown due to low battery. Voltage: {voltage:.2f} V, Capacity: {capacity}%")
         os.system("sudo shutdown now")
 
 if __name__ == "__main__":
