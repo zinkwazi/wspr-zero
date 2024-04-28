@@ -14,8 +14,8 @@ import time
 from datetime import datetime
 
 # Configuration Variables
-BATTERY_SHUTDOWN_THRESHOLD = 15  # Set the battery percentage threshold for shutdown
-UPPER_LOGGING_THRESHOLD = BATTERY_SHUTDOWN_THRESHOLD + 5  # 20% upper bound for logging
+BATTERY_SHUTDOWN_THRESHOLD = 10  # Set the battery percentage threshold for shutdown to 10%
+LOGGING_THRESHOLD = BATTERY_SHUTDOWN_THRESHOLD + 5  # 15% upper bound for logging
 LOG_FILE_PATH = "/var/log/wspr-battery.log"  # Log file path
 
 def read_voltage(bus):
@@ -34,6 +34,12 @@ def read_capacity(bus):
     capacity = swapped / 256
     return capacity
 
+def get_system_uptime():
+    """Returns system uptime in seconds."""
+    with open("/proc/uptime", 'r') as f:
+        uptime_seconds = float(f.readline().split()[0])
+        return uptime_seconds
+
 def log_event(message):
     """Logs a message to the specified log file with a timestamp."""
     with open(LOG_FILE_PATH, "a") as log_file:
@@ -45,6 +51,7 @@ def main():
 
     voltage = read_voltage(bus)
     capacity = read_capacity(bus)
+    uptime = get_system_uptime()
 
     # If arguments are provided, print the battery stats to the console
     if len(sys.argv) > 1:
@@ -53,15 +60,17 @@ def main():
         return  # Exit after displaying the information
 
     # Log battery details if capacity is between the shutdown threshold and 5% above it
-    if BATTERY_SHUTDOWN_THRESHOLD <= capacity <= UPPER_LOGGING_THRESHOLD:
+    if BATTERY_SHUTDOWN_THRESHOLD <= capacity <= LOGGING_THRESHOLD:
         log_event(f"Battery Voltage: {voltage:.2f} V")
         log_event(f"Battery Capacity: {capacity}%")
 
     # Check for shutdown condition
     if capacity < BATTERY_SHUTDOWN_THRESHOLD:
-        # Log before shutdown
-        log_event(f"Initiating shutdown due to low battery. Voltage: {voltage:.2f} V, Capacity: {capacity}%")
-        os.system("sudo shutdown now")
+        if uptime < 1200:  # 20 minutes in seconds
+            log_event(f"Battery below threshold ({capacity}%) but uptime ({uptime/60:.2f} minutes) under 20 minutes; skipping shutdown to let the battery charge.")
+        else:
+            log_event(f"Initiating shutdown due to low battery. Voltage: {voltage:.2f} V, Capacity: {capacity}%")
+            os.system("sudo shutdown now")
 
 if __name__ == "__main__":
     main()
