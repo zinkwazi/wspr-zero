@@ -1,6 +1,6 @@
 # WSPR-zero Project
 
-The WSPR-zero project aims to provide a very small footprint, cost-effective, and ultra-portable solution for transmitting and receiving WSPR signals.
+The WSPR-zero project aims to provide the hardware and software in a cost-effective and ultra-portable solution for transmitting and receiving WSPR signals.
 The project brings together various community contributions into an easy-to-install package tailored for the Raspberry Pi Zero, although it is also tested on the Raspberry Pi 3 & 4.
 
 Enjoy!
