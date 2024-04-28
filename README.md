@@ -7,14 +7,27 @@ Enjoy!
 
 -- Greg Lawler K6FTP
 
-## About WSPR-zero
+## About WSPR
 
 **WSPR** (pronounced "whisper") stands for Weak Signal Propagation Reporter. 
 The WSPR-zero project empowers radio enthusiasts (nerds?) to transmit low-power signals globally, testing radio wave propagation by bouncing off the ionosphere. Designed for portability and efficiency, this project is perfectly suited for outdoor activities such as backpacking and traveling, thanks to its compact size and minimal power requirements.
 
 Adding to the fun, every WSPR transmission ever sent or received—is logged to a massive database and is available for download, providing a great dataset for budding data analysts!
 
-Furthermore, WSPR-zero’s open-source nature allows users to dive into the Linux-based system, offering hands-on opportunities to tweak both the software and hardware. This level of accessibility not only enhances learning but also invites innovation and customization, making it a fun project for tech enthusiasts (nerds?) who love to tinker with technology.
+WSPR-zero’s open-source nature allows users to dive into the Linux-based system, offering hands-on opportunities to tweak both the software and hardware. This level of accessibility not only enhances learning but also invites innovation and customization, making it a fun project for tech enthusiasts (nerds?) who love to tinker with technology.
+
+Each WSPR transmission is 110.6 seconds long. This precise duration allows for a slow data rate that enhances the likelihood of reception under weak signal conditions. The remaining time within the two-minute interval (about 9.4 seconds) is used as a buffer to ensure that transmissions do not overlap and that there is time for transceivers to switch from transmit to receive mode, and vice versa.
+
+**Crazy stat:** Each WSPR transmission contains just 40.5 bytes of data at the impressively low rate of 1.46 baud!
+
+### Required Hardware
+
+- Raspberry Pi Zero, Pi 3 or Pi 4 (not yet tested on Pi 5)
+- WSPR-zero or TAPR HAT (for transmission)
+- HDMI dummy load dongle (for smoother operation on Pi Zero)
+- RTL-SDR USB device (for receiving)
+- Optional: UPS-Lite board for graceful shutdown when external and UPS-Lite batteries expire
+- Antenna of some sort. Simple wire antenna is easy, cheap and works great!
 
 ### WSPR-zero Board Close-up
 ![WSPR-zero in action](images/IMG_9252.jpg "WSPR-zero in Action")
@@ -30,23 +43,14 @@ Furthermore, WSPR-zero’s open-source nature allows users to dive into the Linu
   - **Receive**: Requires an RTL-SDR USB device.
 - **Extended Run Time**: Can easily run for over 24 hours on a portable phone battery pack.
 
-### RTC Coming in V2
-**Real Time Clock Headers**
+### Coming in V2
+- **Real Time Clock Headers**
 WSPR relies heavily on accurate time synchronization. Transmitters and receivers must have their clocks synchronized to Universal Time Coordinated (UTC) to within a second or so. This synchronization is critical because slight timing offsets can lead to missed transmissions or failure to decode signals properly.
-
-Each WSPR transmission is 110.6 seconds long. This precise duration allows for a slow data rate that enhances the likelihood of reception under weak signal conditions. The remaining time within the two-minute interval (about 9.4 seconds) is used as a buffer to ensure that transmissions do not overlap and that there is time for transceivers to switch from transmit to receive mode, and vice versa.
-
-**Crazy stat:** Each WSPR transmission contains just 40.5 bytes of data at the impressively low rate of 1.46 baud!
-
-### Required Hardware
-
-- Raspberry Pi Zero, Pi 3 or Pi 4 (not yet tested on Pi 5)
-- WSPR-zero or TAPR HAT (for transmission)
-- HDMI dummy load dongle (for smoother operation on Pi Zero)
-- RTL-SDR USB device (for receiving)
-- Optional: UPS-Lite board for graceful shutdown when external and UPS-Lite batteries expire
+- **Install Scripts**
+Scripts to help newcomers get started with minimal effort.
 
 ## Installation
+No install script yet - pull the repo and go from there :)
 
 Ensure your Raspberry Pi is up to date and connected to the internet before starting the installation.
 ```
