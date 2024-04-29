@@ -44,9 +44,9 @@ Each WSPR transmission is 110.6 seconds long. This precise duration allows for a
 - **Extended Run Time**: Can easily run for over 24 hours on a portable phone battery pack.
 
 ### Coming in V2
-- **Real Time Clock I2C Headers: **
+- **Real Time Clock I2C Headers:**
 WSPR relies heavily on accurate time synchronization. Transmitters and receivers must have their clocks synchronized to Universal Time Coordinated (UTC) to within a second or so. This synchronization is critical because slight timing offsets can lead to missed transmissions or failure to decode signals properly.
-- **Install Scripts: **
+- **Install Scripts:**
 Scripts to help newcomers get started with minimal effort.
 
 ## Installation
@@ -58,8 +58,7 @@ sudo apt update && sudo apt upgrade
 sudo apt install rtl-sdr librtlsdr-dev libcurl4-openssl-dev libfftw3-dev
 ```
 ### SSH Configuration
-If SSH access is painfully slow, run the following command on the Pi
-**Add IPQoS to sshd_config**:
+**Add IPQoS to sshd_config**: If SSH access is painfully slow, run the following command on the Pi
 ```
 echo "IPQoS 0x00" | sudo tee -a /etc/ssh/sshd_config
 ```
@@ -105,4 +104,4 @@ For more details, visit the [official GitHub repository](https://github.com/zink
 *Render of v2 of the WSPR-zero Hat with RTC header - coming soon.**
 
 
-**WSPR-zero Project © 2024 Greg Lawler.** All rights reserved. Visit our [GitHub repository](https://github.com/zinkwazi/wspr-zero) for more information.
+**WSPR-zero Project by 2024 Greg Lawler.** Visit the [GitHub repository](https://github.com/zinkwazi/wspr-zero) for more information.
