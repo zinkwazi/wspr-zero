@@ -1,33 +1,33 @@
 # WSPR-zero Project
 
-The WSPR-zero project aims to provide the hardware and software in a cost-effective and ultra-portable solution for transmitting and receiving WSPR signals.
+WSPR-zero provides the components for a cost-effective and ultra-portable Raspberry Pi Zero solution for transmitting and receiving WSPR signals.
 The project brings together various community contributions into an easy-to-install package tailored for the Raspberry Pi Zero, although it is also tested on the Raspberry Pi 3 & 4.
+
+Designed for portability and low power requirements, this project is perfectly suited for outdoor activities such as backpacking and traveling.
 
 Enjoy!
 
--- Greg Lawler K6FTP
+-- Greg Lawler, K6FTP
 
 ## About WSPR
 
 **WSPR** (pronounced "whisper") stands for Weak Signal Propagation Reporter. 
-The WSPR-zero project empowers radio enthusiasts (nerds?) to transmit low-power signals globally, testing radio wave propagation by bouncing off the ionosphere. Designed for portability and efficiency, this project is perfectly suited for outdoor activities such as backpacking and traveling, thanks to its compact size and minimal power requirements.
-
-Adding to the fun, every WSPR transmission ever sent or received—is logged to a massive database and is available for download, providing a great dataset for budding data analysts!
-
-WSPR-zero’s open-source nature allows users to dive into the Linux-based system, offering hands-on opportunities to tweak both the software and hardware. This level of accessibility not only enhances learning but also invites innovation and customization, making it a fun project for tech enthusiasts (nerds?) who love to tinker with technology.
+WSPR is a digital radio protocol to transmit low-power shortwave signals globally, testing radio wave propagation by bouncing off the ionosphere. 
 
 Each WSPR transmission is 110.6 seconds long. This precise duration allows for a slow data rate that enhances the likelihood of reception under weak signal conditions. The remaining time within the two-minute interval (about 9.4 seconds) is used as a buffer to ensure that transmissions do not overlap and that there is time for transceivers to switch from transmit to receive mode, and vice versa.
 
-**Crazy stat:** Each WSPR transmission contains just 40.5 bytes of data at the impressively low rate of 1.46 baud!
+Adding to the fun, every WSPR transmission ever sent or received—is logged to a massive database and is available for download, providing a great dataset for budding data analysts!
 
-### Required Hardware
+**Fun Fact:** Each WSPR transmission contains just 40.5 bytes of data at the impressively low data rate of 1.46 baud!
 
-- Raspberry Pi Zero, Pi 3 or Pi 4 (not yet tested on Pi 5)
-- WSPR-zero or TAPR.org HAT (for transmission)
-- RTL-SDR USB device (for receiving)
+### Requirements
+
+- Raspberry Pi Zero, Pi 3 or Pi 4
+- WSPR-zero or TAPR.org Raspberry Pi low pass filter hat for WSPR transmission
+- RTL-SDR USB device for receiving WSPR signals
 - HDMI dummy load dongle (prevents crashing upon transmission on Raspberry Pi Zero)
 - Antenna of some sort. Simple half dipole wire antenna is easy, cheap and works great!
-- Optional: UPS-Lite board for graceful shutdown when external and UPS-Lite batteries expire
+- Optional: UPS-Lite backup battery board for automated graceful shutdown when external power is lost 
 
 ### Raspberry Pi Zero with WSPR-zero Hat
 ![WSPR-zero in action](images/IMG_9252.jpg "WSPR-zero in Action")
