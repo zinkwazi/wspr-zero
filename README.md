@@ -1,3 +1,5 @@
+![WSPR-zero Logo](web/WSPR-zero-logo-medium.png)
+
 # WSPR-zero Project
 
 WSPR-zero provides the components for a cost-effective and ultra-portable Raspberry Pi Zero solution for transmitting and receiving WSPR signals.
