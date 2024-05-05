@@ -10,6 +10,7 @@ Designed for portability and low power requirements, this project is perfectly s
 Enjoy!
 
 -- Greg Lawler, K6FTP
+Visit [wspr-zero.com](https://wspr-zero.com`) for more details.
 
 ## About WSPR
 
