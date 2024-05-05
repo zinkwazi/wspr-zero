@@ -11,7 +11,7 @@ Enjoy!
 
 -- Greg Lawler, K6FTP
 
-Visit [wspr-zero.com](https://wspr-zero.com`) for more details.
+Visit [wspr-zero.com](https://wspr-zero.com) for more details.
 
 ## About WSPR
 
