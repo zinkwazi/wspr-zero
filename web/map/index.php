@@ -5,42 +5,42 @@
     <title>WSPR-zero Activity Map</title>
     <style>
         html, body {
-            height: 100%; /* Ensure the page uses full height */
+            height: 100%;
             margin: 0;
             padding: 0;
         }
         body {
-            display: flex; /* Make the body a flex container */
-            flex-direction: column; /* Arrange child elements in a column */
+            display: flex;
+            flex-direction: column;
             font-family: Arial, sans-serif;
             background-color: #f5f5f5;
             color: #333;
         }
         #header {
-            background-color: #ffffff; /* White header background */
+            background-color: #ffffff;
             padding: 20px;
-            text-align: left; /* Left-align header content */
-            color: #333; /* Dark text color */
-            display: flex; /* Flex container to align items horizontally */
-            justify-content: space-between; /* Space out the logo and links */
-            align-items: center; /* Vertically align items in the center */
+            text-align: left;
+            color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         #header a {
-            text-decoration: none; /* Remove underline from logo link */
-            color: inherit; /* Inherit color from parent */
+            text-decoration: none;
+            color: inherit;
         }
         #header img {
-            width: 260px; /* Increased logo size by 25% */
-            vertical-align: middle; /* Vertically align logo */
+            width: 260px;
+            vertical-align: middle;
         }
         #header-links {
             display: flex;
-            gap: 10px; /* Space between links */
+            gap: 10px;
         }
         .header-link {
             padding: 5px 10px;
-            background-color: #e0e0e0; /* Light grey background */
-            color: #333; /* Darker text color */
+            background-color: #e0e0e0;
+            color: #333;
             text-decoration: none;
             border-radius: 5px;
             font-size: 0.9em;
@@ -48,25 +48,25 @@
             cursor: pointer;
         }
         .header-link:hover {
-            background-color: #d0d0d0; /* Slightly darker grey on hover */
+            background-color: #d0d0d0;
         }
         #footer {
-            background-color: #343a40; /* Dark footer background */
+            background-color: #343a40;
             padding: 10px;
             text-align: center;
-            color: #fff; /* White text color */
-            flex-shrink: 0; /* Prevent the footer from shrinking */
+            color: #fff;
+            flex-shrink: 0;
         }
         #map-container {
-            flex: 1; /* Allow the map container to grow and shrink */
+            flex: 1;
             display: flex;
             justify-content: center;
             align-items: center;
-            width: 100%; /* Map width scaled to 100% for mobile */
-            height: 100%; /* Map height set to fill entire viewport */
-            margin: 0 auto; /* Remove margins */
+            width: 100%;
+            height: 100%;
+            margin: 0 auto;
             border: 2px solid #333;
-            position: relative; /* For positioning the overlay */
+            position: relative;
         }
         #map {
             width: 100%;
@@ -74,40 +74,60 @@
         }
         #overlay {
             position: absolute;
-            top: 50%; /* Center vertically */
-            left: 50%; /* Center horizontally */
-            transform: translate(-50%, -50%); /* Adjust positioning */
-            background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent background */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.6);
             color: white;
-            padding: 40px; /* Increase padding for larger overlay */
+            padding: 40px;
             border-radius: 10px;
             text-align: center;
-            z-index: 1; /* Bring to the front */
-            font-size: 1.5em; /* Increase font size for better visibility */
-            width: 80%; /* Set overlay width to 80% */
+            z-index: 1;
+            font-size: 1.5em;
+            width: 80%;
         }
         #summary {
             text-align: center;
-            font-size: 1.2em; /* Same font size for summary */
+            font-size: 1.2em;
             margin: 20px auto;
             width: 90%;
         }
         #title {
-            font-size: 1.2em; /* Same font size for title */
+            font-size: 1.2em;
         }
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB1ighfZ4owP2tr2WlXaEBEqbcDw7JR4U4&callback=initMap" async defer></script>
     <script>
         let wsprData = [];
+        let furthestContactData = { distance: 0 };
 
         async function loadWSPRData() {
-            const response = await fetch('wspr_data.json'); // Load the JSON file once
+            const response = await fetch('wspr_data.json');
             const data = await response.json();
-            wsprData = data.data; // Store the data in a global variable
+            wsprData = data.data;
+
+            try {
+                const furthestResponse = await fetch('furthest_contact.json');
+                if (furthestResponse.ok) {
+                    furthestContactData = await furthestResponse.json();
+                }
+            } catch (error) {
+                console.error("Error loading furthest contact data:", error);
+            }
+        }
+
+        async function saveFurthestContact(data) {
+            const response = await fetch('save_furthest_contact.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) {
+                console.error('Failed to save furthest contact data.');
+            }
         }
 
         function getRandomColor() {
-            // Generate a random hex color
             const letters = '0123456789ABCDEF';
             let color = '#';
             for (let i = 0; i < 6; i++) {
@@ -120,54 +140,48 @@
             return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1);
         }
 
-        async function initMap(hours = 24) {
-            await loadWSPRData(); // Ensure data is loaded before filtering
+        async function initMap(minutes = 12) {
+            await loadWSPRData();
+            const currentTime = Date.now();
+            const cutoffTime = new Date(currentTime - (minutes * 60 * 1000));
+
             const filteredData = wsprData.filter(spot => {
-                const spotTime = new Date(spot.time);
-                const cutoffTime = new Date(Date.now() - (hours * 60 * 60 * 1000));
-                return spotTime >= cutoffTime;
+                const spotTime = new Date(spot.time).getTime();
+                return spotTime >= cutoffTime.getTime();
             });
 
-            // Check if there is any data
-            if (filteredData.length === 0) {
-                // If no data, display the overlay message
+            const numberOfSpots = filteredData.length;
+
+            if (numberOfSpots === 0) {
                 const overlay = document.getElementById('overlay');
                 overlay.style.display = 'block';
-
-                // Initialize the map with a default center if no data is available
                 const mapOptions = {
-                    mapTypeId: google.maps.MapTypeId.TERRAIN, // Set map type
-                    center: { lat: 36.7783, lng: -119.4179 }, // Default center (California)
-                    zoom: 6 // Default zoom level
+                    mapTypeId: google.maps.MapTypeId.TERRAIN,
+                    center: { lat: 36.7783, lng: -119.4179 },
+                    zoom: 6
                 };
                 const map = new google.maps.Map(document.getElementById("map"), mapOptions);
-
                 return;
             }
 
-            // Determine the transmitter location based on `tx_loc`
             const firstSpot = filteredData[0];
             let txLat, txLon;
 
             if (firstSpot.tx_loc === "DM04bk") {
-                // Use hardcoded coordinates
-                txLat = 34.42075;
-                txLon = -119.70222;
+                txLat = 34.4208485;
+                txLon = -119.7023207;
             } else {
-                // Use coordinates from JSON file
                 txLat = parseFloat(firstSpot.tx_lat);
                 txLon = parseFloat(firstSpot.tx_lon);
             }
 
-            // Initialize the map centered on the transmitter
             const mapOptions = {
-                mapTypeId: google.maps.MapTypeId.TERRAIN, // Set map type
-                center: { lat: txLat, lng: txLon }, // Center on the transmitter location
-                zoom: 6 // Default zoom level
+                mapTypeId: google.maps.MapTypeId.TERRAIN,
+                center: { lat: txLat, lng: txLon },
+                zoom: 6
             };
             const map = new google.maps.Map(document.getElementById("map"), mapOptions);
 
-            // Initialize LatLngBounds for calculating the bounds
             const bounds = new google.maps.LatLngBounds();
 
             let maxDistance = 0;
@@ -183,15 +197,12 @@
                     furthestSpot = spot;
                 }
 
-                // Extend the bounds to include the transmitter and receiver
                 bounds.extend(new google.maps.LatLng(txLat, txLon));
                 bounds.extend(new google.maps.LatLng(rxLat, rxLon));
             });
 
-            // Fit the map to the calculated bounds
             map.fitBounds(bounds);
 
-            // If on a mobile device, increase zoom by 2 levels
             if (isMobileDevice()) {
                 map.setZoom(map.getZoom() + 2);
             }
@@ -200,7 +211,6 @@
                 const rxLat = parseFloat(spot.rx_lat);
                 const rxLon = parseFloat(spot.rx_lon);
 
-                // Draw a line between transmitter and receiver
                 const path = [
                     { lat: txLat, lng: txLon },
                     { lat: rxLat, lng: rxLon }
@@ -208,27 +218,25 @@
                 const polyline = new google.maps.Polyline({
                     path: path,
                     geodesic: true,
-                    strokeColor: getRandomColor(), // Randomized line color
+                    strokeColor: getRandomColor(),
                     strokeOpacity: 1.0,
-                    strokeWeight: 1, // Thinner lines
+                    strokeWeight: 1,
                     map: map
                 });
 
-                // Add a standard Google Maps marker, scaled down
                 const marker = new google.maps.Marker({
                     position: { lat: rxLat, lng: rxLon },
                     map: map,
                     icon: {
                         url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
-                        scaledSize: new google.maps.Size(15, 15) // Scale the standard marker
+                        scaledSize: new google.maps.Size(15, 15)
                     },
                     title: `Receiver: ${spot.rx_sign}`
                 });
 
-                // Add tooltip with receiver callsign on hover or click
                 const infowindow = new google.maps.InfoWindow({
                     content: `Receiver: <a href="https://www.qrz.com/db/${spot.rx_sign}" target="_blank">${spot.rx_sign}</a>`,
-                    disableAutoPan: true // Prevents the X from being selected automatically
+                    disableAutoPan: true
                 });
                 marker.addListener('mouseover', () => {
                     infowindow.open(map, marker);
@@ -241,29 +249,45 @@
                 });
             });
 
-            // Show the summary for the furthest contact
             if (furthestSpot) {
                 const summaryDiv = document.getElementById('summary');
                 const distanceMiles = Math.round(furthestSpot.distance * 0.621371);
-                summaryDiv.innerHTML = `<h1 id="title">WSPR-zero Activity over the Past ${hours} Hours</h1>
+                const furthestContactInfo = {
+                    tx_sign: furthestSpot.tx_sign,
+                    rx_sign: furthestSpot.rx_sign,
+                    distance: furthestSpot.distance,
+                    distance_miles: distanceMiles,
+                    time: furthestSpot.time
+                };
+
+                if (furthestSpot.distance > furthestContactData.distance) {
+                    furthestContactData = furthestContactInfo;
+                    await saveFurthestContact(furthestContactData);
+                }
+
+                let timeDisplay;
+                if (minutes < 60) {
+                    timeDisplay = `${minutes} Minutes`;
+                } else {
+                    timeDisplay = `${Math.round(minutes / 60)} Hours`;
+                }
+
+                summaryDiv.innerHTML = `<h1 id="title">WSPR-zero Activity over the Past ${timeDisplay} - ${numberOfSpots} spots</h1>
                 <strong>Furthest Contact:</strong>
-                    ${furthestSpot.tx_sign} to <a href="https://www.qrz.com/db/${furthestSpot.rx_sign}" target="_blank">${furthestSpot.rx_sign}</a>,
-                    Distance: ${distanceMiles} miles / ${furthestSpot.distance} km`;
+                    ${furthestContactInfo.distance_miles} miles from <a href="https://www.qrz.com/db/${furthestContactInfo.tx_sign}" target="_blank">${furthestContactInfo.tx_sign}</a> to <a href="https://www.qrz.com/db/${furthestContactInfo.rx_sign}" target="_blank">${furthestContactInfo.rx_sign}</a> on ${furthestContactInfo.time}`;
             }
         }
 
-        // Load the map with the default 24-hour view
-        window.onload = () => initMap(24);
+        window.onload = () => initMap(12);
     </script>
 </head>
 <body>
     <div id="header">
         <a href="/"><img id="logo" src="/WSPR-zero-logo-medium.png" alt="WSPR-zero Logo"></a>
         <div id="header-links">
-            <a class="header-link" onclick="initMap(0.2)">12 Min</a>
-            <a class="header-link" onclick="initMap(3)">3 Hours</a>
-            <a class="header-link" onclick="initMap(24)">24 Hours</a>
-            <a class="header-link" onclick="initMap(48)">2 Days</a>
+            <a class="header-link" onclick="initMap(12)">12 Min</a>
+            <a class="header-link" onclick="initMap(180)">3 Hours</a>
+            <a class="header-link" onclick="initMap(1440)">24 Hours</a>
         </div>
     </div>
     <div id="map-container">
