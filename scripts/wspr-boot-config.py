@@ -4,6 +4,7 @@ import os
 import subprocess
 import requests
 from datetime import datetime
+import time  # Import the time module
 
 # Default configuration template
 DEFAULT_CONFIG = {
@@ -78,7 +79,7 @@ def update_config():
     try:
         # Check if the configuration file exists, if not, create it with default values
         try:
-            with open('wspr-config.json', 'r') as file:
+            with open('../wspr-config.json', 'r') as file:
                 config = json.load(file)
         except FileNotFoundError:
             config = DEFAULT_CONFIG  # Use default configuration if file not found
@@ -94,7 +95,7 @@ def update_config():
         config['serial_number'] = serial
 
         # Save updated configuration
-        with open('wspr-config.json', 'w') as file:
+        with open('../wspr-config.json', 'w') as file:
             json.dump(config, file, indent=4)
 
         print("Configuration updated successfully.")
@@ -103,4 +104,5 @@ def update_config():
         print(f"Failed to update configuration: {e}")
 
 if __name__ == "__main__":
+    time.sleep(30)  # Delay for 30 seconds before running the rest of the script
     update_config()
