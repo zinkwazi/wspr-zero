@@ -5,25 +5,6 @@ import logging
 import requests
 import socket
 import uuid
-import json
-import argparse
-
-# Configuration file path
-config_file = '/path/to/config.json'
-
-def load_config():
-    try:
-        with open(config_file, 'r') as file:
-            return json.load(file)
-    except FileNotFoundError:
-        return {}
-
-# Load configuration
-config = load_config()
-callsign = config.get('callsign', 'default_callsign')
-band = config.get('band', '20m')
-rtc_enabled = config.get('rtc_enabled', False)
-mode = config.get('mode', 'transmit')
 
 # Delay start
 time.sleep(30)  # Delay 30 seconds
@@ -110,31 +91,13 @@ def button_callback(channel):
 # Setup event detection for both rising and falling edges
 GPIO.add_event_detect(shutdown_pin, GPIO.BOTH, callback=button_callback, bouncetime=200)
 
-def test_features():
-    """Test the features by printing the loaded configuration."""
-    print(f"Testing features with the following configuration:")
-    print(f"Callsign: {callsign}")
-    print(f"Band: {band}")
-    print(f"RTC Enabled: {rtc_enabled}")
-    print(f"Mode: {mode}")
-
-def main():
-    parser = argparse.ArgumentParser(description='WSPR-zero Raspberry Pi Script')
-    parser.add_argument('--test', action='store_true', help='Test the features by printing the loaded configuration')
-    args = parser.parse_args()
-
-    if args.test:
-        test_features()
-    else:
-        try:
-            logging.info("Monitoring utility button. Hold for 10 seconds to shutdown or press 5 times to post data.")
-            while True:
-                time.sleep(86400)  # Sleep for a day; effectively idle
-        except KeyboardInterrupt:
-            logging.info("Program terminated by user")
-        finally:
-            GPIO.cleanup()  # Clean up GPIO on normal exit
-
-if __name__ == '__main__':
-    main()
+# Main loop just waits indefinitely
+try:
+    logging.info("Monitoring utility button. Hold for 10 seconds to shutdown or press 5 times to post data.")
+    while True:
+        time.sleep(86400)  # Sleep for a day; effectively idle
+except KeyboardInterrupt:
+    logging.info("Program terminated by user")
+finally:
+    GPIO.cleanup()  # Clean up GPIO on normal exit
 

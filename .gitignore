@@ -6,3 +6,6 @@
 
 # Ignore dat files
 *.dat
+
+# Ignore the local config file
+wspr-config.json

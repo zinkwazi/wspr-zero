@@ -140,6 +140,12 @@
             return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1);
         }
 
+        function convertToPST(utcTimeString) {
+            const utcDate = new Date(utcTimeString + ' UTC');
+            const options = { timeZone: 'America/Los_Angeles', hour12: false, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' };
+            return utcDate.toLocaleString('en-US', options);
+        }
+
         async function initMap(minutes = 12) {
             await loadWSPRData();
             const currentTime = Date.now();
@@ -228,7 +234,7 @@
                     position: { lat: rxLat, lng: rxLon },
                     map: map,
                     icon: {
-                        url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                        url: 'red-dot.png',
                         scaledSize: new google.maps.Size(15, 15)
                     },
                     title: `Receiver: ${spot.rx_sign}`
@@ -257,7 +263,7 @@
                     rx_sign: furthestSpot.rx_sign,
                     distance: furthestSpot.distance,
                     distance_miles: distanceMiles,
-                    time: furthestSpot.time
+                    time: convertToPST(furthestSpot.time) // Convert time to PST
                 };
 
                 if (furthestSpot.distance > furthestContactData.distance) {
