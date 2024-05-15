@@ -88,9 +88,10 @@
         }
         #summary {
             text-align: center;
-            font-size: 1.2em;
+            font-size: 1em;
             margin: 20px auto;
-            width: 90%;
+	    width: 90%;
+            line-height: 1.8;
         }
         #title {
             font-size: 1.2em;
@@ -116,34 +117,24 @@
             }
         }
 
-        async function saveFurthestContact(data) {
-            const response = await fetch('save_furthest_contact.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            if (!response.ok) {
-                console.error('Failed to save furthest contact data.');
-            }
-        }
-
-        function getRandomColor() {
-            const letters = '0123456789ABCDEF';
-            let color = '#';
-            for (let i = 0; i < 6; i++) {
-                color += letters[Math.floor(Math.random() * 16)];
-            }
-            return color;
-        }
+function getRandomColor() {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+        // Allow colors up to 'B' for more variety but avoid very light colors
+        let index = Math.floor(Math.random() * 15);
+        color += letters[index];
+    }
+    return color;
+}
 
         function isMobileDevice() {
             return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1);
         }
 
-        function convertToPST(utcTimeString) {
-            const utcDate = new Date(utcTimeString + ' UTC');
-            const options = { timeZone: 'America/Los_Angeles', hour12: false, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' };
-            return utcDate.toLocaleString('en-US', options);
+        function convertToPST(dateString) {
+            const utcDate = new Date(dateString + 'Z'); // 'Z' indicates UTC time
+            return new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', dateStyle: 'full', timeStyle: 'long' }).format(utcDate);
         }
 
         async function initMap(minutes = 12) {
@@ -190,18 +181,9 @@
 
             const bounds = new google.maps.LatLngBounds();
 
-            let maxDistance = 0;
-            let furthestSpot = null;
-
             filteredData.forEach(spot => {
-                const distance = parseFloat(spot.distance);
                 const rxLat = parseFloat(spot.rx_lat);
                 const rxLon = parseFloat(spot.rx_lon);
-
-                if (distance > maxDistance) {
-                    maxDistance = distance;
-                    furthestSpot = spot;
-                }
 
                 bounds.extend(new google.maps.LatLng(txLat, txLon));
                 bounds.extend(new google.maps.LatLng(rxLat, rxLon));
@@ -234,7 +216,7 @@
                     position: { lat: rxLat, lng: rxLon },
                     map: map,
                     icon: {
-                        url: 'red-dot.png',
+                        url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
                         scaledSize: new google.maps.Size(15, 15)
                     },
                     title: `Receiver: ${spot.rx_sign}`
@@ -255,33 +237,17 @@
                 });
             });
 
-            if (furthestSpot) {
-                const summaryDiv = document.getElementById('summary');
-                const distanceMiles = Math.round(furthestSpot.distance * 0.621371);
-                const furthestContactInfo = {
-                    tx_sign: furthestSpot.tx_sign,
-                    rx_sign: furthestSpot.rx_sign,
-                    distance: furthestSpot.distance,
-                    distance_miles: distanceMiles,
-                    time: convertToPST(furthestSpot.time) // Convert time to PST
-                };
-
-                if (furthestSpot.distance > furthestContactData.distance) {
-                    furthestContactData = furthestContactInfo;
-                    await saveFurthestContact(furthestContactData);
-                }
-
-                let timeDisplay;
-                if (minutes < 60) {
-                    timeDisplay = `${minutes} Minutes`;
-                } else {
-                    timeDisplay = `${Math.round(minutes / 60)} Hours`;
-                }
-
-                summaryDiv.innerHTML = `<h1 id="title">WSPR-zero Activity over the Past ${timeDisplay} - ${numberOfSpots} spots</h1>
-                <strong>Furthest Contact:</strong>
-                    ${furthestContactInfo.distance_miles} miles from <a href="https://www.qrz.com/db/${furthestContactInfo.tx_sign}" target="_blank">${furthestContactInfo.tx_sign}</a> to <a href="https://www.qrz.com/db/${furthestContactInfo.rx_sign}" target="_blank">${furthestContactInfo.rx_sign}</a> on ${furthestContactInfo.time}`;
-            }
+            // Always display furthest contact details from furthest_contact.json
+            const summaryDiv = document.getElementById('summary');
+            const distanceMiles = Math.round(furthestContactData.distance * 0.621371); // Convert km to miles
+            const mostRecentSpot = filteredData[filteredData.length - 1];
+            const mostRecentDistanceMiles = Math.round(mostRecentSpot.distance * 0.621371); // Convert km to miles
+            let timeDisplay = minutes < 60 ? `${minutes} Minutes` : `${Math.round(minutes / 60)} Hours`;
+            summaryDiv.innerHTML = `<h2 id="title">WSPR-zero Activity over the Past ${timeDisplay} - ${numberOfSpots} spots</h2>
+            <strong>Furthest Contact:</strong>
+                ${distanceMiles} miles from <a href="https://www.qrz.com/db/${furthestContactData.tx_sign}" target="_blank">${furthestContactData.tx_sign}</a> to <a href="https://www.qrz.com/db/${furthestContactData.rx_sign}" target="_blank">${furthestContactData.rx_sign}</a> on ${convertToPST(furthestContactData.time)}<br>
+            <strong>Most Recent Contact:</strong>
+                ${mostRecentDistanceMiles} miles from <a href="https://www.qrz.com/db/${mostRecentSpot.tx_sign}" target="_blank">${mostRecentSpot.tx_sign}</a> to <a href="https://www.qrz.com/db/${mostRecentSpot.rx_sign}" target="_blank">${mostRecentSpot.rx_sign}</a> on ${convertToPST(mostRecentSpot.time)}`;
         }
 
         window.onload = () => initMap(12);
