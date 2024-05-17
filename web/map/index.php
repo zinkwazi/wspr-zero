@@ -118,14 +118,20 @@
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB1ighfZ4owP2tr2WlXaEBEqbcDw7JR4U4&callback=initMap" async defer></script>
     <script>
-        let wsprData = [];
+        let wsprDataTx = [];
+        let wsprDataRx = [];
         let furthestTxContactData = { distance: 0 };
         let furthestRxContactData = { distance: 0 };
+        const excludedCallsign = 'K6FTP'; // Change this to the callsign you want to exclude
 
         async function loadWSPRData() {
-            const response = await fetch('wspr_data_tx.json');
-            const data = await response.json();
-            wsprData = data.data;
+            const responseTx = await fetch('wspr_data_tx.json');
+            const dataTx = await responseTx.json();
+            wsprDataTx = dataTx.data;
+
+            const responseRx = await fetch('wspr_data_rx.json');
+            const dataRx = await responseRx.json();
+            wsprDataRx = dataRx.data;
 
             try {
                 const furthestResponse = await fetch('furthest_contact.json');
@@ -164,14 +170,20 @@
             const currentTime = Date.now();
             const cutoffTime = new Date(currentTime - (minutes * 60 * 1000));
 
-            const filteredData = wsprData.filter(spot => {
+            const filteredDataTx = wsprDataTx.filter(spot => {
                 const spotTime = new Date(spot.time).getTime();
                 return spotTime >= cutoffTime.getTime();
             });
 
-            const numberOfSpots = filteredData.length;
+            const filteredDataRx = wsprDataRx.filter(spot => {
+                const spotTime = new Date(spot.time).getTime();
+                return spotTime >= cutoffTime.getTime();
+            });
 
-            if (numberOfSpots === 0) {
+            const numberOfSpotsTx = filteredDataTx.length;
+            const numberOfSpotsRx = filteredDataRx.length;
+
+            if (numberOfSpotsTx === 0 && numberOfSpotsRx === 0) {
                 const overlay = document.getElementById('overlay');
                 overlay.style.display = 'block';
                 const mapOptions = {
@@ -183,15 +195,15 @@
                 return;
             }
 
-            const firstSpot = filteredData[0];
+            const firstSpotTx = filteredDataTx[0];
             let txLat, txLon;
 
-            if (firstSpot.tx_loc === "DM04bk") {
+            if (firstSpotTx.tx_loc === "DM04bk") {
                 txLat = 34.4208485;
                 txLon = -119.7023207;
             } else {
-                txLat = parseFloat(firstSpot.tx_lat);
-                txLon = parseFloat(firstSpot.tx_lon);
+                txLat = parseFloat(firstSpotTx.tx_lat);
+                txLon = parseFloat(firstSpotTx.tx_lon);
             }
 
             const mapOptions = {
@@ -203,12 +215,20 @@
 
             const bounds = new google.maps.LatLngBounds();
 
-            filteredData.forEach(spot => {
+            filteredDataTx.forEach(spot => {
                 const rxLat = parseFloat(spot.rx_lat);
                 const rxLon = parseFloat(spot.rx_lon);
 
                 bounds.extend(new google.maps.LatLng(txLat, txLon));
                 bounds.extend(new google.maps.LatLng(rxLat, rxLon));
+            });
+
+            filteredDataRx.forEach(spot => {
+                const txLat = parseFloat(spot.tx_lat);
+                const txLon = parseFloat(spot.tx_lon);
+
+                bounds.extend(new google.maps.LatLng(txLat, txLon));
+                bounds.extend(new google.maps.LatLng(spot.rx_lat, spot.rx_lon));
             });
 
             map.fitBounds(bounds);
@@ -217,7 +237,7 @@
                 map.setZoom(map.getZoom() + 2);
             }
 
-            filteredData.forEach(spot => {
+            filteredDataTx.forEach(spot => {
                 const rxLat = parseFloat(spot.rx_lat);
                 const rxLon = parseFloat(spot.rx_lon);
 
@@ -234,53 +254,126 @@
                     map: map
                 });
 
-                const marker = new google.maps.Marker({
-                    position: { lat: rxLat, lng: rxLon },
-                    map: map,
-                    icon: {
-                        url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
-                        scaledSize: new google.maps.Size(15, 15)
-                    },
-                    title: `Receiver: ${spot.rx_sign}`
+                if (spot.rx_loc !== "DM04bk") {
+                    const marker = new google.maps.Marker({
+                        position: { lat: rxLat, lng: rxLon },
+                        map: map,
+                        icon: {
+                            url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                            scaledSize: new google.maps.Size(20, 20)
+                        },
+                        title: `Receiver: ${spot.rx_sign}`
+                    });
+
+                    const infowindow = new google.maps.InfoWindow({
+                        content: `Receiver: <a href="https://www.qrz.com/db/${spot.rx_sign}" target="_blank">${spot.rx_sign}</a>`,
+                        disableAutoPan: true
+                    });
+                    marker.addListener('mouseover', () => {
+                        infowindow.open(map, marker);
+                    });
+                    marker.addListener('mouseout', () => {
+                        infowindow.close();
+                    });
+                    marker.addListener('click', () => {
+                        infowindow.open(map, marker);
+                    });
+                }
+            });
+
+            filteredDataRx.forEach(spot => {
+                let txLat, txLon;
+
+                if (spot.rx_loc === "DM04bk") {
+                    spot.rx_lat = 34.4208485;
+                    spot.rx_lon = -119.7023207;
+                }
+
+                if (spot.tx_loc === "DM04bk") {
+                    txLat = 34.4208485;
+                    txLon = -119.7023207;
+                } else {
+                    txLat = parseFloat(spot.tx_lat);
+                    txLon = parseFloat(spot.tx_lon);
+                }
+
+                const path = [
+                    { lat: txLat, lng: txLon },
+                    { lat: spot.rx_lat, lng: spot.rx_lon }
+                ];
+                const polyline = new google.maps.Polyline({
+                    path: path,
+                    geodesic: true,
+                    strokeColor: getRandomColor(),
+                    strokeOpacity: 1.0,
+                    strokeWeight: 1,
+                    map: map
                 });
 
-                const infowindow = new google.maps.InfoWindow({
-                    content: `Receiver: <a href="https://www.qrz.com/db/${spot.rx_sign}" target="_blank">${spot.rx_sign}</a>`,
-                    disableAutoPan: true
-                });
-                marker.addListener('mouseover', () => {
-                    infowindow.open(map, marker);
-                });
-                marker.addListener('mouseout', () => {
-                    infowindow.close();
-                });
-                marker.addListener('click', () => {
-                    infowindow.open(map, marker);
-                });
+                if (spot.tx_sign !== excludedCallsign) {
+                    const marker = new google.maps.Marker({
+                        position: { lat: txLat, lng: txLon },
+                        map: map,
+                        icon: {
+                            url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                            scaledSize: new google.maps.Size(20, 20)
+                        },
+                        title: `Transmitter: ${spot.tx_sign}`
+                    });
+
+                    const infowindow = new google.maps.InfoWindow({
+                        content: `Transmitter: <a href="https://www.qrz.com/db/${spot.tx_sign}" target="_blank">${spot.tx_sign}</a>`,
+                        disableAutoPan: true
+                    });
+                    marker.addListener('mouseover', () => {
+                        infowindow.open(map, marker);
+                    });
+                    marker.addListener('mouseout', () => {
+                        infowindow.close();
+                    });
+                    marker.addListener('click', () => {
+                        infowindow.open(map, marker);
+                    });
+                }
             });
 
             // Always display furthest contact details from furthest_contact.json
             const summaryDiv = document.getElementById('summary');
             const distanceTxMiles = Math.round(furthestTxContactData.distance * 0.621371); // Convert km to miles
             const distanceRxMiles = Math.round(furthestRxContactData.distance * 0.621371); // Convert km to miles
-            const mostRecentSpot = filteredData[filteredData.length - 1];
+
+            const mostRecentSpotTx = filteredDataTx[filteredDataTx.length - 1];
+            const mostRecentSpotRx = filteredDataRx[filteredDataRx.length - 1];
+
+            let mostRecentSpot;
+            if (new Date(mostRecentSpotTx.time) > new Date(mostRecentSpotRx.time)) {
+                mostRecentSpot = mostRecentSpotTx;
+            } else {
+                mostRecentSpot = mostRecentSpotRx;
+            }
+
             const mostRecentDistanceMiles = Math.round(mostRecentSpot.distance * 0.621371); // Convert km to miles
             let timeDisplay = minutes < 60 ? `${minutes} Minutes` : `${Math.round(minutes / 60)} Hours`;
-            summaryDiv.innerHTML = `<h2 id="title">WSPR-zero Activity over the Past ${timeDisplay} - ${numberOfSpots} spots</h2>
-            <table>
-                <tr>
-                    <td><strong>Furthest TX Contact:</strong></td>
-                    <td>${distanceTxMiles} miles from <a href="https://www.qrz.com/db/${furthestTxContactData.tx_sign}" target="_blank">${furthestTxContactData.tx_sign}</a> to <a href="https://www.qrz.com/db/${furthestTxContactData.rx_sign}" target="_blank">${furthestTxContactData.rx_sign}</a> on ${convertToPST(furthestTxContactData.time)}</td>
-                </tr>
-                <tr>
-                    <td><strong>Furthest RX Contact:</strong></td>
-                    <td>${distanceRxMiles} miles from <a href="https://www.qrz.com/db/${furthestRxContactData.tx_sign}" target="_blank">${furthestRxContactData.tx_sign}</a> to <a href="https://www.qrz.com/db/${furthestRxContactData.rx_sign}" target="_blank">${furthestRxContactData.rx_sign}</a> on ${convertToPST(furthestRxContactData.time)}</td>
-                </tr>
-                <tr>
-                    <td><strong>Most Recent Contact:</strong></td>
-                    <td>${mostRecentDistanceMiles} miles from <a href="https://www.qrz.com/db/${mostRecentSpot.tx_sign}" target="_blank">${mostRecentSpot.tx_sign}</a> to <a href="https://www.qrz.com/db/${mostRecentSpot.rx_sign}" target="_blank">${mostRecentSpot.rx_sign}</a> on ${convertToPST(mostRecentSpot.time)}</td>
-                </tr>
-            </table>`;
+
+            const mostRecentType = mostRecentSpot === mostRecentSpotTx ? "TX" : "RX";
+            const mostRecentSign = mostRecentType === "TX" ? mostRecentSpot.tx_sign : mostRecentSpot.rx_sign;
+
+            summaryDiv.innerHTML = `<h2 id="title">WSPR-zero Activity over the Past ${timeDisplay} - ${numberOfSpotsTx + numberOfSpotsRx} spots</h2>
+
+<table style="table-layout: auto; width: auto; margin: 20px auto; border-collapse: collapse; background-color: transparent; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);">
+    <tr>
+        <td style="padding: 8px 10px; text-align: left; border-bottom: 1px solid #ddd; font-weight: bold; background-color: #f9f9f9;"><strong>Furthest TX Contact:</strong></td>
+        <td style="padding: 8px 10px; text-align: left; border-bottom: 1px solid #ddd;">${distanceTxMiles} miles from <a href="https://www.qrz.com/db/${furthestTxContactData.tx_sign}" target="_blank">${furthestTxContactData.tx_sign}</a> to <a href="https://www.qrz.com/db/${furthestTxContactData.rx_sign}" target="_blank">${furthestTxContactData.rx_sign}</a> on ${convertToPST(furthestTxContactData.time)}</td>
+    </tr>
+    <tr>
+        <td style="padding: 8px 10px; text-align: left; border-bottom: 1px solid #ddd; font-weight: bold; background-color: #f9f9f9;"><strong>Furthest RX Contact:</strong></td>
+        <td style="padding: 8px 10px; text-align: left; border-bottom: 1px solid #ddd;">${distanceRxMiles} miles from <a href="https://www.qrz.com/db/${furthestRxContactData.tx_sign}" target="_blank">${furthestRxContactData.tx_sign}</a> to <a href="https://www.qrz.com/db/${furthestRxContactData.rx_sign}" target="_blank">${furthestRxContactData.rx_sign}</a> on ${convertToPST(furthestRxContactData.time)}</td>
+    </tr>
+    <tr>
+        <td style="padding: 8px 10px; text-align: left; border-bottom: 1px solid #ddd; font-weight: bold; background-color: #f9f9f9;"><strong>Most Recent Contact:</strong></td>
+        <td style="padding: 8px 10px; text-align: left; border-bottom: 1px solid #ddd;">${mostRecentDistanceMiles} miles from <a href="https://www.qrz.com/db/${mostRecentSpot.tx_sign}" target="_blank">${mostRecentSpot.tx_sign}</a> to <a href="https://www.qrz.com/db/${mostRecentSpot.rx_sign}" target="_blank">${mostRecentSpot.rx_sign}</a> on ${convertToPST(mostRecentSpot.time)} (${mostRecentType})</td>
+    </tr>
+</table>`;
         }
 
         window.onload = () => initMap(12);
