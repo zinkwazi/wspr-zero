@@ -90,17 +90,37 @@
             text-align: center;
             font-size: 1em;
             margin: 20px auto;
-	    width: 90%;
+            width: 90%;
             line-height: 1.8;
         }
         #title {
             font-size: 1.2em;
         }
+        table {
+            width: 80%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            background-color: transparent;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        td:first-child {
+            font-weight: bold;
+            background-color: #f9f9f9;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB1ighfZ4owP2tr2WlXaEBEqbcDw7JR4U4&callback=initMap" async defer></script>
     <script>
         let wsprData = [];
-        let furthestContactData = { distance: 0 };
+        let furthestTxContactData = { distance: 0 };
+        let furthestRxContactData = { distance: 0 };
 
         async function loadWSPRData() {
             const response = await fetch('wspr_data_tx.json');
@@ -110,23 +130,25 @@
             try {
                 const furthestResponse = await fetch('furthest_contact.json');
                 if (furthestResponse.ok) {
-                    furthestContactData = await furthestResponse.json();
+                    const furthestData = await furthestResponse.json();
+                    furthestTxContactData = furthestData.TX;
+                    furthestRxContactData = furthestData.RX;
                 }
             } catch (error) {
                 console.error("Error loading furthest contact data:", error);
             }
         }
 
-function getRandomColor() {
-    const letters = '0123456789ABCDEF';
-    let color = '#';
-    for (let i = 0; i < 6; i++) {
-        // Allow colors up to 'B' for more variety but avoid very light colors
-        let index = Math.floor(Math.random() * 15);
-        color += letters[index];
-    }
-    return color;
-}
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                // Allow colors up to 'B' for more variety but avoid very light colors
+                let index = Math.floor(Math.random() * 15);
+                color += letters[index];
+            }
+            return color;
+        }
 
         function isMobileDevice() {
             return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1);
@@ -239,15 +261,26 @@ function getRandomColor() {
 
             // Always display furthest contact details from furthest_contact.json
             const summaryDiv = document.getElementById('summary');
-            const distanceMiles = Math.round(furthestContactData.distance * 0.621371); // Convert km to miles
+            const distanceTxMiles = Math.round(furthestTxContactData.distance * 0.621371); // Convert km to miles
+            const distanceRxMiles = Math.round(furthestRxContactData.distance * 0.621371); // Convert km to miles
             const mostRecentSpot = filteredData[filteredData.length - 1];
             const mostRecentDistanceMiles = Math.round(mostRecentSpot.distance * 0.621371); // Convert km to miles
             let timeDisplay = minutes < 60 ? `${minutes} Minutes` : `${Math.round(minutes / 60)} Hours`;
             summaryDiv.innerHTML = `<h2 id="title">WSPR-zero Activity over the Past ${timeDisplay} - ${numberOfSpots} spots</h2>
-            <strong>Furthest Contact:</strong>
-                ${distanceMiles} miles from <a href="https://www.qrz.com/db/${furthestContactData.tx_sign}" target="_blank">${furthestContactData.tx_sign}</a> to <a href="https://www.qrz.com/db/${furthestContactData.rx_sign}" target="_blank">${furthestContactData.rx_sign}</a> on ${convertToPST(furthestContactData.time)}<br>
-            <strong>Most Recent Contact:</strong>
-                ${mostRecentDistanceMiles} miles from <a href="https://www.qrz.com/db/${mostRecentSpot.tx_sign}" target="_blank">${mostRecentSpot.tx_sign}</a> to <a href="https://www.qrz.com/db/${mostRecentSpot.rx_sign}" target="_blank">${mostRecentSpot.rx_sign}</a> on ${convertToPST(mostRecentSpot.time)}`;
+            <table>
+                <tr>
+                    <td><strong>Furthest TX Contact:</strong></td>
+                    <td>${distanceTxMiles} miles from <a href="https://www.qrz.com/db/${furthestTxContactData.tx_sign}" target="_blank">${furthestTxContactData.tx_sign}</a> to <a href="https://www.qrz.com/db/${furthestTxContactData.rx_sign}" target="_blank">${furthestTxContactData.rx_sign}</a> on ${convertToPST(furthestTxContactData.time)}</td>
+                </tr>
+                <tr>
+                    <td><strong>Furthest RX Contact:</strong></td>
+                    <td>${distanceRxMiles} miles from <a href="https://www.qrz.com/db/${furthestRxContactData.tx_sign}" target="_blank">${furthestRxContactData.tx_sign}</a> to <a href="https://www.qrz.com/db/${furthestRxContactData.rx_sign}" target="_blank">${furthestRxContactData.rx_sign}</a> on ${convertToPST(furthestRxContactData.time)}</td>
+                </tr>
+                <tr>
+                    <td><strong>Most Recent Contact:</strong></td>
+                    <td>${mostRecentDistanceMiles} miles from <a href="https://www.qrz.com/db/${mostRecentSpot.tx_sign}" target="_blank">${mostRecentSpot.tx_sign}</a> to <a href="https://www.qrz.com/db/${mostRecentSpot.rx_sign}" target="_blank">${mostRecentSpot.rx_sign}</a> on ${convertToPST(mostRecentSpot.time)}</td>
+                </tr>
+            </table>`;
         }
 
         window.onload = () => initMap(12);
