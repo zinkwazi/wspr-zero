@@ -103,7 +103,7 @@
         let furthestContactData = { distance: 0 };
 
         async function loadWSPRData() {
-            const response = await fetch('wspr_data.json');
+            const response = await fetch('wspr_data_tx.json');
             const data = await response.json();
             wsprData = data.data;
 
