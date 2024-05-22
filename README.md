@@ -1,4 +1,4 @@
-![WSPR-zero Logo](web/WSPR-zero-logo-medium.png)
+![WSPR-zero Logo](images/WSPR-zero-logo-medium.png)
 
 # WSPR-zero Project
 
