@@ -2,15 +2,17 @@ import RPi.GPIO as GPIO
 import os
 import time
 import logging
-import requests
-import socket
-import uuid
 
 # Delay start
 time.sleep(30)  # Delay 30 seconds
 
+# Ensure the log directory exists
+log_dir = '/home/pi/wspr-zero/logs'
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+
 # Setup logging
-logging.basicConfig(filename='/var/log/wspr-zero-shutdown.log', level=logging.INFO, format='%(asctime)s %(message)s')
+logging.basicConfig(filename='/home/pi/wspr-zero/logs/wspr-zero-shutdown.log', level=logging.INFO, format='%(asctime)s %(message)s')
 
 # Pin Definitions
 shutdown_pin = 19  # GPIO pin for button, using BCM numbering
@@ -25,38 +27,8 @@ GPIO.setup(led_pin, GPIO.OUT)  # LED as output
 # Variables to track button presses
 button_presses = 0
 last_press_time = 0
-press_interval = 3  # Time interval in seconds to count multiple presses
-
-def get_ip_address():
-    """Retrieve the IP address of the default network interface"""
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        # doesn't need to be reachable
-        s.connect(('10.255.255.255', 1))
-        IP = s.getsockname()[0]
-    except Exception:
-        IP = '127.0.0.1'
-    finally:
-        s.close()
-    return IP
-
-def get_mac_address():
-    """Retrieve the MAC address"""
-    return ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(0, 2*6, 8)][::-1])
-
-def send_data_to_server():
-    """Send device data to the server."""
-    hostname = socket.gethostname()
-    ip_address = get_ip_address()
-    mac_address = get_mac_address()
-    url = "http://wspr-zero.com/setup/index.php"
-    payload = {'hn': hostname, 'ip': ip_address, 'mac': mac_address}
-    try:
-        response = requests.get(url, params=payload)
-        logging.info(f"Data sent to server: {response.url}")
-        logging.info("Response from server: " + response.text)
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Failed to send data to server: {e}")
+press_interval = 10  # Time interval in seconds to count multiple presses (increased to 10 seconds)
+hold_time = 8  # Time in seconds to hold the button for shutdown
 
 def blink_led():
     """Function to blink the LED rapidly to indicate shutdown."""
@@ -69,20 +41,20 @@ def blink_led():
 def button_callback(channel):
     """Callback function to handle button events."""
     global button_presses, last_press_time
+    current_time = time.time()
     if GPIO.input(channel) == 0:  # Button pressed (falling edge)
-        current_time = time.time()
         if current_time - last_press_time > press_interval:
-            button_presses = 0  # Reset count if interval between presses exceeds 3s to avoid accidental shutdowns
+            button_presses = 0  # Reset count if interval between presses exceeds press_interval
         button_presses += 1
         last_press_time = current_time
 
         if button_presses == 5:
-            logging.info("Button pressed 5 times in a row.")
-            send_data_to_server()
+            logging.info("Button pressed 5 times in a row. Entering Setup Mode.")
+            os.system("python3 /home/pi/wspr-zero/scripts/server_checkin.py")
             button_presses = 0  # Reset count after sending data
 
     elif GPIO.input(channel) == 1:  # Button released (rising edge)
-        if last_press_time and (time.time() - last_press_time >= 3) and button_presses == 1:
+        if last_press_time and (current_time - last_press_time >= hold_time) and button_presses == 1:
             logging.info("Button held for 10 seconds. Shutting down...")
             blink_led()  # Blink LED to indicate shutdown
             os.system("sudo shutdown now -h")
@@ -100,4 +72,3 @@ except KeyboardInterrupt:
     logging.info("Program terminated by user")
 finally:
     GPIO.cleanup()  # Clean up GPIO on normal exit
-

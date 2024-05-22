@@ -1,4 +1,0 @@
-<Files "pi_data.json">
-    Order Allow,Deny
-    Deny from all
-</Files>
