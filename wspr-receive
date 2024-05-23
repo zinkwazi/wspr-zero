@@ -1,4 +1,0 @@
-#!/bin/bash
-#
-# Listen on 30m
-/home/pi/wspr-zero/rtlsdr-wsprd/rtlsdr_wsprd -f 30m -c K6FTP -l DM04bk -d 2 -S  >> /home/pi/wspr-zero/logs/wspr-receive.log 2>&1

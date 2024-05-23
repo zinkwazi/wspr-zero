@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 
 # Define the URL of the remote server
-server_url = "https://wspr-zero.com/setup/dev-server-setup.php"
+server_url = "https://wspr-zero.com/setup/server-listener.php"
 log_file = '/home/pi/wspr-zero/logs/setup-post.log'
 
 # Function to read wspr-config.json
