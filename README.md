@@ -34,7 +34,7 @@ Adding to the fun, every WSPR transmission ever sent or received—is logged to 
 - Optional: UPS-Lite backup battery board for automated graceful shutdown when external power is lost 
 
 ### Raspberry Pi Zero with WSPR-zero Hat
-![WSPR-zero in action](images/IMG_9252.jpg "WSPR-zero in Action")
+![WSPR-zero in action](images/IMG_9521.jpg "WSPR-zero in Action")
 *Close-up view of a Raspberry Pi Zero 2 W, WSPR-zero Hat and UPS-Lite.*
 
 ### Features
