@@ -15,8 +15,8 @@ if not os.path.exists(log_dir):
 logging.basicConfig(filename='/home/pi/wspr-zero/logs/wspr-zero-shutdown.log', level=logging.INFO, format='%(asctime)s %(message)s')
 
 # Pin Definitions
-shutdown_pin = 19  # GPIO pin for button, using BCM numbering
-led_pin = 47       # GPIO pin for built-in LED, using BCM numbering
+shutdown_pin = 19  # GPIO pin for button
+led_pin = 18       # GPIO pin for WSPR-zero LED
 
 # Initialize GPIO
 GPIO.setmode(GPIO.BCM)  # Use BCM pin numbering

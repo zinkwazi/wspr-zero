@@ -24,14 +24,37 @@ body {
     color: inherit;
 }
 #header img {
-    width: 260px;
+    width: 259px;
     vertical-align: middle;
-    margin-left: 12px;
-    margin-top: -6px;
+    margin-left: 14px;
+    margin-top: -7px;
+}
+#nav-menu ul {
+    list-style: none;
+    margin: 0;
+    padding: 15px;
+    display: flex;
+    gap: 8px;
+    margin-top: -3px;
+    margin-right: -10px;
+}
+#nav-menu li {
+    display: inline-block;
+}
+#nav-menu a {
+    font-size: 16px;
+    color: #666;
+    padding: 0 10px;
+    display: inline-block;
+}
+#nav-menu a:hover {
+    color: #2ea3f2;
 }
 #header-links {
     display: flex;
+    justify-content: flex-end;
     gap: 10px;
+    padding: 10px 20px;
 }
 .header-link {
     padding: 5px 10px;

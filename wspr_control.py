@@ -1,6 +1,10 @@
 import json
 import subprocess
 import time
+import signal
+import sys
+import os
+import psutil
 
 # Load configuration from JSON file
 with open('/home/pi/wspr-zero/wspr-config.json') as config_file:
@@ -31,7 +35,7 @@ def transmit():
     tx_log_file = "/home/pi/wspr-zero/logs/wspr-transmit.log"
     # Execute the transmit command and redirect output to log file
     with open(tx_log_file, "a") as log_file:
-        subprocess.run(tx_command, stdout=log_file, stderr=subprocess.STDOUT)
+        subprocess.Popen(tx_command, stdout=log_file, stderr=subprocess.STDOUT)
 
 def receive():
     # Prepare the receive command
@@ -51,12 +55,38 @@ def receive():
     rx_log_file = "/home/pi/wspr-zero/logs/wspr-receive.log"
     # Execute the receive command and redirect output to log file
     with open(rx_log_file, "a") as log_file:
-        subprocess.run(rx_command, stdout=log_file, stderr=subprocess.STDOUT)
+        subprocess.Popen(rx_command, stdout=log_file, stderr=subprocess.STDOUT)
+
+def stop_processes():
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        if proc.info['cmdline'] and ('wspr' in proc.info['cmdline'][0] or 'rtlsdr_wsprd' in proc.info['cmdline'][0]):
+            print(f"Stopping process {proc.info['pid']}: {proc.info['cmdline']}")
+            proc.terminate()
+            proc.wait()
+
+def signal_handler(sig, frame):
+    print('Stopping processes...')
+    stop_processes()
+    print('Processes stopped. Exiting.')
+    sys.exit(0)
 
 if __name__ == "__main__":
-    if transmit_or_receive == "transmit":
-        transmit()
-    elif transmit_or_receive == "receive":
-        receive()
-    else:
-        print("Invalid configuration: transmit_or_receive_option should be either 'transmit' or 'receive'.")
+    if len(sys.argv) != 2 or sys.argv[1] not in ["start", "stop"]:
+        print("Usage: python wspr_control.py <start|stop>")
+        sys.exit(1)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    if sys.argv[1] == "start":
+        if transmit_or_receive == "transmit":
+            transmit()
+        elif transmit_or_receive == "receive":
+            receive()
+        else:
+            print("Invalid configuration: transmit_or_receive_option should be either 'transmit' or 'receive'.")
+        # Exit immediately to return control to the command line
+        sys.exit(0)
+    elif sys.argv[1] == "stop":
+        stop_processes()
+        sys.exit(0)
