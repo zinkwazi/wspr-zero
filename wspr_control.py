@@ -61,8 +61,12 @@ def stop_processes():
     for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
         if proc.info['cmdline'] and ('wspr' in proc.info['cmdline'][0] or 'rtlsdr_wsprd' in proc.info['cmdline'][0]):
             print(f"Stopping process {proc.info['pid']}: {proc.info['cmdline']}")
-            proc.terminate()
-            proc.wait()
+            try:
+                proc.terminate()
+                proc.wait()
+            except psutil.AccessDenied:
+                print(f"Access denied when trying to stop process {proc.info['pid']}, trying with sudo.")
+                subprocess.run(['sudo', 'kill', '-TERM', str(proc.info['pid'])])
 
 def signal_handler(sig, frame):
     print('Stopping processes...')

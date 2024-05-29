@@ -15,6 +15,7 @@ DEFAULT_CONFIG = {
     "last_checkin": "",
     "RTC_module": "",
     "call_sign": "",
+    "rx_band_frequency": "30m",
     "tx_band_frequency": [
         "30m",
         "0",
