@@ -17,9 +17,19 @@ rx_band_frequency = config["rx_band_frequency"]
 transmit_or_receive = config["transmit_or_receive_option"]
 grid_location = config["maidenhead_grid"]
 
+def get_uptime():
+    with open('/proc/uptime', 'r') as f:
+        uptime_seconds = float(f.readline().split()[0])
+    return uptime_seconds
+
 def transmit():
-    # Delay to ensure everything is ready
-    time.sleep(60)
+    # Check system uptime
+    uptime_seconds = get_uptime()
+
+    # Delay to ensure everything is ready if uptime is under 2 minutes
+    if uptime_seconds < 120:
+        time.sleep(60)
+
     # Prepare the transmit command
     tx_command = [
         "sudo",
@@ -31,8 +41,10 @@ def transmit():
         grid_location,
         "23"
     ] + tx_band_frequencies
+
     # Log file for transmit
     tx_log_file = "/home/pi/wspr-zero/logs/wspr-transmit.log"
+
     # Execute the transmit command and redirect output to log file
     with open(tx_log_file, "a") as log_file:
         subprocess.Popen(tx_command, stdout=log_file, stderr=subprocess.STDOUT)
@@ -62,11 +74,9 @@ def stop_processes():
         if proc.info['cmdline'] and ('wspr' in proc.info['cmdline'][0] or 'rtlsdr_wsprd' in proc.info['cmdline'][0]):
             print(f"Stopping process {proc.info['pid']}: {proc.info['cmdline']}")
             try:
-                proc.terminate()
-                proc.wait()
+                os.system(f"sudo kill {proc.info['pid']}")
             except psutil.AccessDenied:
-                print(f"Access denied when trying to stop process {proc.info['pid']}, trying with sudo.")
-                subprocess.run(['sudo', 'kill', '-TERM', str(proc.info['pid'])])
+                print(f"Access denied when trying to terminate process {proc.info['pid']}")
 
 def signal_handler(sig, frame):
     print('Stopping processes...')

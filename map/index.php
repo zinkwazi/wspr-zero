@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>WSPR-zero Activity Map</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/styles.css">
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB1ighfZ4owP2tr2WlXaEBEqbcDw7JR4U4&callback=initMap" async defer></script>
     <script>
         let wsprDataTx = [];

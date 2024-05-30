@@ -4,6 +4,7 @@ import json
 import time
 from datetime import datetime
 import threading
+import subprocess
 
 # Define the URL of the remote server
 server_url = "https://wspr-zero.com/setup/server-listener.php"
@@ -61,6 +62,16 @@ def blink_led():
         GPIO.output(led_pin, GPIO.LOW)
         GPIO.cleanup()
 
+# Function to stop the WSPR process
+def stop_wspr():
+    log_message("Stopping WSPR process")
+    subprocess.Popen(['python', '/home/pi/wspr-zero/wspr_control.py', 'stop'])
+
+# Function to start the WSPR process
+def start_wspr():
+    log_message("Starting WSPR process")
+    subprocess.Popen(['python', '/home/pi/wspr-zero/wspr_control.py', 'start'])
+
 # Main function
 def main():
     # Initialize GPIO for LED
@@ -81,12 +92,18 @@ def main():
     if server_response:
         write_wspr_config(wspr_config, server_response)
 
+    # Stop and start the WSPR process to reload any config file changes
+    stop_wspr()
+
     # Wait 5 seconds and then repeatedly request the config file 12 times without sending full config again
-    for _ in range(12):
+    for _ in range(10):
         server_response = send_data_to_server({'MAC_address': wspr_config['MAC_address']})
         if server_response:
             write_wspr_config(wspr_config, server_response)
         time.sleep(5)
+
+    # Start the WSPR process to reload any config file changes
+    start_wspr()
 
 if __name__ == "__main__":
     try:
@@ -96,4 +113,3 @@ if __name__ == "__main__":
     finally:
         GPIO.output(led_pin, GPIO.LOW)
         GPIO.cleanup()
-
