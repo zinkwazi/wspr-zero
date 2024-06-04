@@ -33,7 +33,7 @@ def transmit():
     # Prepare the transmit command
     tx_command = [
         "sudo",
-        "/home/pi/wspr-zero/WsprryPi/wspr",
+        "/home/pi/WsprryPi-zero/wspr",
         "-r",
         "-o",
         "-f",
@@ -52,7 +52,7 @@ def transmit():
 def receive():
     # Prepare the receive command
     rx_command = [
-        "/home/pi/wspr-zero/rtlsdr-wsprd/rtlsdr_wsprd",
+        "/home/pi/rtlsdr-wsprd/rtlsdr_wsprd",
         "-f",
         rx_band_frequency,
         "-c",
@@ -104,3 +104,4 @@ if __name__ == "__main__":
     elif sys.argv[1] == "stop":
         stop_processes()
         sys.exit(0)
+

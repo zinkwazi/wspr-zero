@@ -238,10 +238,12 @@
         <a href="/"><img id="logo" src="/WSPR-zero-logo-medium.png" alt="WSPR-zero Logo"></a>
         <div id="nav-menu">
             <ul>
-                <li><a href="/map">Map</a></li>
-                <li><a href="https://wspr-zero.com/gallery/">Gallery</a></li>
+                <li><a href="https://wspr-zero.com/">Home</a></li>
+                <li><a href="/setup">Setup</a></li>
                 <li><a href="https://github.com/zinkwazi/wspr-zero/">GitHub</a></li>
-                <li><a href="https://wspr-zero.com/setup">Configure</a></li>
+                <li><a href="https://wspr-zero.com/ez-config">EZ-config</a></li>
+                <li><a href="https://wspr-zero.com/about">About</a></li>
+                <li><a href="/news">News</a></li>
             </ul>
         </div>
     </div>
@@ -257,7 +259,9 @@
     </div>
     <div id="summary"></div>
     <div id="footer">
-        <p>2024 WSPR-zero Project</p>
+	<p>2024 WSPR-zero Project •
+           <a href="https://github.com/zinkwazi/wspr-zero">GitHub Repository</a>
+        </p>
     </div>
 </body>
 </html>
