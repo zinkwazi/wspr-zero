@@ -1,3 +1,0 @@
-22:26:44 04-23-2024
-Battery Voltage: 4.19 V
-Battery Percentage: 100%

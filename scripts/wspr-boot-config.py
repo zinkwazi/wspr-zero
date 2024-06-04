@@ -110,3 +110,4 @@ if __name__ == "__main__":
     if uptime_seconds < 60:
         time.sleep(30)  # Delay for 30 seconds if uptime is under 1 minute
     update_config()
+

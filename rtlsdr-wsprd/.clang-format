@@ -1,9 +1,0 @@
----
-BasedOnStyle: Google
-ColumnLimit: 0
-UseTab: Never
----
-Language: Cpp
-SortIncludes: false
-IndentWidth: 4
----

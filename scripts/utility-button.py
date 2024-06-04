@@ -15,8 +15,8 @@ if not os.path.exists(log_dir):
 logging.basicConfig(filename='/home/pi/wspr-zero/logs/wspr-zero-shutdown.log', level=logging.INFO, format='%(asctime)s %(message)s')
 
 # Pin Definitions
-shutdown_pin = 19  # GPIO pin for button
-led_pin = 18       # GPIO pin for WSPR-zero LED
+shutdown_pin = 19  # GPIO pin for button, using BCM numbering
+led_pin = 18       # GPIO pin for built-in LED, using BCM numbering
 
 # Initialize GPIO
 GPIO.setmode(GPIO.BCM)  # Use BCM pin numbering
@@ -27,7 +27,7 @@ GPIO.setup(led_pin, GPIO.OUT)  # LED as output
 # Variables to track button presses
 button_presses = 0
 last_press_time = 0
-press_interval = 10  # Time interval in seconds to count multiple presses (increased to 10 seconds)
+press_interval = 6  # Time interval in seconds to count multiple presses (increased to 10 seconds)
 hold_time = 8  # Time in seconds to hold the button for shutdown
 
 def blink_led():
@@ -48,10 +48,10 @@ def button_callback(channel):
         button_presses += 1
         last_press_time = current_time
 
-        if button_presses == 5:
+        if button_presses >= 5:
             logging.info("Button pressed 5 times in a row. Entering Setup Mode.")
             os.system("python3 /home/pi/wspr-zero/scripts/server_checkin.py")
-            button_presses = 0  # Reset count after sending data
+            gbl button_presses = 0  # Reset count after sending data
 
     elif GPIO.input(channel) == 1:  # Button released (rising edge)
         if last_press_time and (current_time - last_press_time >= hold_time) and button_presses == 1:
@@ -72,3 +72,4 @@ except KeyboardInterrupt:
     logging.info("Program terminated by user")
 finally:
     GPIO.cleanup()  # Clean up GPIO on normal exit
+

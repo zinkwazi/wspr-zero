@@ -7,7 +7,7 @@ import threading
 import subprocess
 
 # Define the URL of the remote server
-server_url = "https://wspr-zero.com/setup/server-listener.php"
+server_url = "https://wspr-zero.com/ez-config/server-listener.php"
 log_file = '/home/pi/wspr-zero/logs/setup-post.log'
 led_pin = 18  # GPIO pin for WSPR-zero LED
 
@@ -74,6 +74,9 @@ def start_wspr():
 
 # Main function
 def main():
+    # Stop the WSPR process to release the transmit LED pin
+    stop_wspr()
+
     # Initialize GPIO for LED
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(led_pin, GPIO.OUT)
@@ -91,9 +94,6 @@ def main():
 
     if server_response:
         write_wspr_config(wspr_config, server_response)
-
-    # Stop and start the WSPR process to reload any config file changes
-    stop_wspr()
 
     # Wait 5 seconds and then repeatedly request the config file 12 times without sending full config again
     for _ in range(10):
@@ -113,3 +113,4 @@ if __name__ == "__main__":
     finally:
         GPIO.output(led_pin, GPIO.LOW)
         GPIO.cleanup()
+
