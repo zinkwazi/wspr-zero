@@ -51,7 +51,7 @@ def button_callback(channel):
         if button_presses >= 5:
             logging.info("Button pressed 5 times in a row. Entering Setup Mode.")
             os.system("python3 /home/pi/wspr-zero/scripts/server_checkin.py")
-            gbl button_presses = 0  # Reset count after sending data
+            # gbl button_presses = 0  # Reset count after sending data
 
     elif GPIO.input(channel) == 1:  # Button released (rising edge)
         if last_press_time and (current_time - last_press_time >= hold_time) and button_presses == 1:
