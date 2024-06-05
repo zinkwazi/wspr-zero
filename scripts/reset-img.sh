@@ -7,7 +7,7 @@ if [ "$EUID" -ne 0 ]
 fi
 
 # Prompt user to agree
-read -p "This script will reset the system. Are you sure you want to continue? (yes/no): " choice
+read -p "WARNING: This script will reset all settings on this pi. Are you sure you want to continue? (yes/no): " choice
 case "$choice" in
   yes|YES|Yes)
     echo "Starting reset..."
@@ -53,9 +53,10 @@ rm -f /lib/udev/rules.d/75-persistent-net-generator.rules
 rm -rf /tmp/*
 rm -rf /var/tmp/*
 
-# Clear user-specific caches
+# Clear user-specific stuff
 for user in $(ls /home); do
     rm -rf /home/$user/.cache/*
+    rm -rf /home/$user/.ssh/*
 done
 rm -rf /root/.cache/*
 
@@ -66,13 +67,13 @@ truncate -s 0 /etc/machine-id
 history -c
 sh -c 'history -c'
 
-# Reset wpa_supplicant configuration to default
+# Reset WiFi to default
 bash -c 'cat << EOF > /etc/wpa_supplicant/wpa_supplicant.conf
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 update_config=1
 EOF'
 
-# Remove ~pi/dev directory and contents
+# Remove dev playground directory and contents
 rm -rf ~pi/dev
 
 # Short delay
