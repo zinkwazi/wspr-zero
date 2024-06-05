@@ -11,6 +11,10 @@ Enjoy!
 
 -- Greg Lawler, K6FTP
 
+## Download WSPR-zero
+
+Download the latest version here: [wspr-zero.com/downloads](https://wspr-zero.com/downloads)
+
 Visit [wspr-zero.com](https://wspr-zero.com) for more details.
 
 ## About WSPR
