@@ -5,11 +5,35 @@ import time
 from datetime import datetime
 import threading
 import subprocess
+import pwd
+import os
+
+# GPIO pin for WSPR-zero LED
+led_pin = 18
 
 # Define the URL of the remote server
 server_url = "https://wspr-zero.com/ez-config/server-listener.php"
-log_file = '/home/pi/wspr-zero/logs/setup-post.log'
-led_pin = 18  # GPIO pin for WSPR-zero LED
+
+# Get the UID of the user running the script
+user = pwd.getpwnam("pi")
+uid = user.pw_uid
+gid = user.pw_gid
+
+# Set up log directory and log file
+log_dir = '/home/pi/wspr-zero/logs'
+log_file = os.path.join(log_dir, 'setup-post.log')
+
+# Create log directory if it doesn't exist
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+    os.chown(log_dir, uid, gid)  # Change ownership of the log directory
+    os.chmod(log_dir, 0o775)  # Set appropriate permissions for the log directory
+
+# Create log file if it doesn't exist
+if not os.path.exists(log_file):
+    open(log_file, 'a').close()
+os.chown(log_file, uid, gid)  # Change ownership of the log file
+os.chmod(log_file, 0o664)  # Set appropriate permissions for the log file
 
 # Function to read wspr-config.json
 def read_wspr_config():
@@ -42,7 +66,6 @@ def send_data_to_server(data):
 def log_message(message):
     with open(log_file, 'a') as file:
         file.write(message + '\n')
-    with open(log_file, 'a') as file:
         file.write('-' * 50 + '\n')
 
 # Function to blink the LED
@@ -58,7 +81,8 @@ def blink_led():
             time.sleep(0.5)  # LED on for half a second
             GPIO.output(led_pin, GPIO.LOW)
             time.sleep(0.5)  # LED off for half a second
-    except:
+    except Exception as e:
+        log_message(f"Exception occurred in blink_led: {str(e)}")
         GPIO.output(led_pin, GPIO.LOW)
         GPIO.cleanup()
 
@@ -113,4 +137,3 @@ if __name__ == "__main__":
     finally:
         GPIO.output(led_pin, GPIO.LOW)
         GPIO.cleanup()
-
