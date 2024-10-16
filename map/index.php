@@ -51,7 +51,7 @@
             const letters = '0123456789ABCDEF';
             let color = '#';
             for (let i = 0; i < 6; i++) {
-                let index = Math.floor(Math.random() * 15);
+                let index = Math.floor(Math.random() * 16);
                 color += letters[index];
             }
             return color;
@@ -238,12 +238,12 @@
         <a href="/"><img id="logo" src="/WSPR-zero-logo-medium.png" alt="WSPR-zero Logo"></a>
         <div id="nav-menu">
             <ul>
-                <li><a href="https://wspr-zero.com/">Home</a></li>
-                <li><a href="/setup">Setup</a></li>
-                <li><a href="https://github.com/zinkwazi/wspr-zero/">GitHub</a></li>
-                <li><a href="https://wspr-zero.com/ez-config">EZ-config</a></li>
-                <li><a href="https://wspr-zero.com/about">About</a></li>
-                <li><a href="/news">News</a></li>
+                <li><a href="https://wspr-zero.com/">HOME</a></li>
+                <li><a href="/setup">INSTALL</a></li>
+                <li><a href="https://wspr-zero.com/ez-config">EZ-CONFIG</a></li>
+                <li><a href="https://wspr-zero.com/map">MAP</a></li>
+                <li><a href="https://wspr-zero.com/about">ABOUT</a></li>
+                <li><a href="/news">NEWS</a></li>
             </ul>
         </div>
     </div>
@@ -265,4 +265,3 @@
     </div>
 </body>
 </html>
-

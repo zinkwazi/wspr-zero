@@ -2,14 +2,14 @@
     "TX": {
         "type": "TX",
         "tx_sign": "K6FTP",
-        "rx_sign": "VK5ARG",
-        "distance": 13008.0,
-        "time": "2024-05-13 09:18:00",
+        "rx_sign": "DP0GVN/1",
+        "distance": 14383.0,
+        "time": "2024-06-07 09:10:00",
         "tx_lat": 34.438,
         "tx_lon": -119.875,
-        "rx_lat": -34.187,
-        "rx_lon": 138.625,
-        "frequency": 10140247
+        "rx_lat": -70.646,
+        "rx_lon": -8.292,
+        "frequency": 10140349
     },
     "RX": {
         "type": "RX",
