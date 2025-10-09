@@ -1,5 +1,30 @@
 #!/bin/bash
-
+#
+# pishrink.sh — shrink a Raspberry Pi image safely, with auto-expand on first boot
+# After first boot it may take up to 10 minutes before the system finishes auto-expanding and comes online
+#
+# WHAT IT DOES
+#   - Mounts the root filesystem inside a raw disk image via loopback
+#   - Verifies and (optionally) repairs the ext filesystem (e2fsck)
+#   - Computes minimal filesystem size and shrinks the FS (resize2fs)
+#   - Rewrites the partition table to the new, smaller end (parted)
+#   - Truncates the image file to remove trailing free space
+#   - Optionally injects an /etc/rc.local that expands rootfs on first boot
+#   - Optionally compresses the final image (gzip/xz), with pigz parallelization
+#
+# USAGE
+# Make an image of the SD card:
+#   - sudo dd if=/dev/dis4 of=WSPR-zero.img
+# Compress the image for faster distribution
+#   - sudo ./pishrink.sh -v -r -a -Z WSPR-zero.img WSPR-zero-v2-2024-0612.x
+#
+# OPTIONS
+#   -v  Verbose compression output (passed to gzip/xz)
+#   -r  Try a more aggressive filesystem repair (e2fsck -fy -b 32768) on failure
+#   -Z  Compress final image with xz (use -a to enable multi-threaded xz via -T0)
+#   -a  Parallel compression (pigz for gzip, xz -T0 for xz)
+#   -h  Help
+#
 version="v0.1.4"
 
 CURRENT_DIR="$(pwd)"
@@ -7,7 +32,7 @@ SCRIPTNAME="${0##*/}"
 MYNAME="${SCRIPTNAME%.*}"
 LOGFILE="${CURRENT_DIR}/${SCRIPTNAME%.*}.log"
 REQUIRED_TOOLS="parted losetup tune2fs md5sum e2fsck resize2fs"
-ZIPTOOLS=("gzip xz")
+ZIPTOOLS=(gzip xz)
 declare -A ZIP_PARALLEL_TOOL=( [gzip]="pigz" [xz]="xz" ) # parallel zip tool to use in parallel mode
 declare -A ZIP_PARALLEL_OPTIONS=( [gzip]="-f9" [xz]="-T0" ) # options for zip tools in parallel mode
 declare -A ZIPEXTENSIONS=( [gzip]="gz" [xz]="xz" ) # extensions of zipped files
@@ -351,11 +376,18 @@ resize2fs -p "$loopback" $minsize
 rc=$?
 if (( $rc )); then
   error $LINENO "resize2fs failed with rc $rc"
-  mount "$loopback" "$mountdir"
-  mv "$mountdir/etc/rc.local.bak" "$mountdir/etc/rc.local"
-  umount "$mountdir"
+  # Attempt to restore rc.local if it was backed up during autoexpand injection
+  tmpdir=$(mktemp -d)
+  if mount "$loopback" "$tmpdir" 2>/dev/null; then
+    if [[ -f "$tmpdir/etc/rc.local.bak" ]]; then
+      mv -f "$tmpdir/etc/rc.local.bak" "$tmpdir/etc/rc.local"
+    fi
+    umount "$tmpdir"
+  fi
+  rmdir "$tmpdir" 2>/dev/null || true
   losetup -d "$loopback"
   exit 12
+fi
 fi
 sleep 1
 
@@ -391,7 +423,7 @@ logVariables $LINENO endresult
 truncate -s "$endresult" "$img"
 rc=$?
 if (( $rc )); then
-	error $LINENO "trunate failed with rc $rc"
+	error $LINENO "truncate failed with rc $rc"
 	exit 16
 fi
 
