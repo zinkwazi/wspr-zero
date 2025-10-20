@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import json
 import subprocess
 import time
@@ -6,11 +7,17 @@ import sys
 import os
 import psutil
 
-# Load configuration from JSON file
-with open('/opt/wsprzero/wspr-zero/wspr-config.json') as config_file:
+# --- Paths / constants ---
+CONFIG_PATH = '/opt/wsprzero/wspr-zero/wspr-config.json'
+LOG_DIR = '/opt/wsprzero/wspr-zero/logs'
+WSPR_BIN = '/opt/wsprzero/WsprryPi-zero/wspr'
+RTLSDR_BIN = '/opt/wsprzero/rtlsdr-wsprd/rtlsdr_wsprd'
+
+# --- Old behavior: load config once for start/stop flows (unchanged) ---
+with open(CONFIG_PATH) as config_file:
     config = json.load(config_file)
 
-# Extract relevant data from the configuration
+# Extract relevant data from the configuration (unchanged)
 call_sign = config["call_sign"]
 tx_band_frequencies = config["tx_band_frequency"]
 rx_band_frequency = config["rx_band_frequency"]
@@ -22,56 +29,43 @@ def get_uptime():
         uptime_seconds = float(f.readline().split()[0])
     return uptime_seconds
 
+# -------- Original behaviors (unchanged) --------
 def transmit():
-    # Check system uptime
+    # TX-only delay like before
     uptime_seconds = get_uptime()
-
-    # Delay to ensure everything is ready if uptime is under 2 minutes
     if uptime_seconds < 120:
         time.sleep(60)
 
-    # Prepare the transmit command
     tx_command = [
-        "sudo",
-        "/opt/wsprzero/WsprryPi-zero/wspr",
-        "-r",
-        "-o",
-        "-f",
+        "sudo",                 # preserved
+        WSPR_BIN,
+        "-r", "-o", "-f",       # preserved (skip NTP per your workflow)
         call_sign,
         grid_location,
         "23"
     ] + tx_band_frequencies
 
-    # Log file for transmit
-    tx_log_file = "/opt/wsprzero/wspr-zero/logs/wspr-transmit.log"
-
-    # Execute the transmit command and redirect output to log file
+    tx_log_file = os.path.join(LOG_DIR, "wspr-transmit.log")
+    os.makedirs(LOG_DIR, exist_ok=True)
     with open(tx_log_file, "a") as log_file:
         subprocess.Popen(tx_command, stdout=log_file, stderr=subprocess.STDOUT)
 
 def receive():
-    # Prepare the receive command
     rx_command = [
-        "/opt/wsprzero/rtlsdr-wsprd/rtlsdr_wsprd",
-        "-f",
-        rx_band_frequency,
-        "-c",
-        call_sign,
-        "-l",
-        grid_location,
-        "-d",
-        "2",
+        RTLSDR_BIN,
+        "-f", rx_band_frequency,
+        "-c", call_sign,
+        "-l", grid_location,
+        "-d", "2",
         "-S"
     ]
-    # Log file for receive
-    rx_log_file = "/opt/wsprzero/wspr-zero/logs/wspr-receive.log"
-    # Execute the receive command and redirect output to log file
+    rx_log_file = os.path.join(LOG_DIR, "wspr-receive.log")
+    os.makedirs(LOG_DIR, exist_ok=True)
     with open(rx_log_file, "a") as log_file:
         subprocess.Popen(rx_command, stdout=log_file, stderr=subprocess.STDOUT)
 
 def stop_processes():
-    WSPR_BIN = "/opt/wsprzero/WsprryPi-zero/wspr"
-    RTLSDR_BIN = "/opt/wsprzero/rtlsdr-wsprd/rtlsdr_wsprd"
+    # Your safe killer (unchanged semantics)
     TARGET_BASENAMES = {"wspr", "rtlsdr_wsprd"}
 
     victims = []
@@ -88,7 +82,7 @@ def stop_processes():
                 full0 in (WSPR_BIN, RTLSDR_BIN)
             )
 
-            # Also stop a sudo wrapper that launches our targets
+            # Also stop a sudo wrapper that launches our targets (unchanged)
             is_sudo_wrapper = (
                 base == "sudo" and any(
                     "/WsprryPi-zero/wspr" in a or "rtlsdr_wsprd" in a
@@ -101,7 +95,7 @@ def stop_processes():
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
 
-    # Graceful then forceful
+    # Graceful then forceful (unchanged)
     for p in victims:
         try: p.terminate()
         except psutil.NoSuchProcess: pass
@@ -116,11 +110,78 @@ def signal_handler(sig, frame):
     print('Processes stopped. Exiting.')
     sys.exit(0)
 
+# -------- New: supervised run mode (additive only) --------
+stop_flag = False
+reload_flag = False
+
+def load_config_fresh():
+    with open(CONFIG_PATH) as f:
+        return json.load(f)
+
+def start_child_from(cfg):
+    tor = (cfg.get("transmit_or_receive_option") or "").strip().lower()
+    os.makedirs(LOG_DIR, exist_ok=True)
+
+    if tor == "transmit":
+        # Preserve TX-only boot delay here too
+        if get_uptime() < 120:
+            time.sleep(60)
+
+        cmd = ["sudo", WSPR_BIN, "-r", "-o", "-f", cfg["call_sign"], cfg["maidenhead_grid"], "23"] \
+              + list(cfg["tx_band_frequency"])
+        log_path = os.path.join(LOG_DIR, "wspr-transmit.log")
+    elif tor == "receive":
+        cmd = [RTLSDR_BIN, "-f", cfg["rx_band_frequency"], "-c", cfg["call_sign"], "-l",
+               cfg["maidenhead_grid"], "-d", "2", "-S"]
+        log_path = os.path.join(LOG_DIR, "wspr-receive.log")
+    else:
+        print("Invalid configuration: transmit_or_receive_option should be 'transmit' or 'receive'.", flush=True)
+        sys.exit(2)
+
+    log_file = open(log_path, "a")
+    return subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT)
+
+def sigterm(_sig, _frm):
+    global stop_flag; stop_flag = True
+
+def sighup(_sig, _frm):
+    global reload_flag; reload_flag = True
+
+def run_supervisor():
+    signal.signal(signal.SIGTERM, sigterm)
+    signal.signal(signal.SIGINT, sigterm)
+    signal.signal(signal.SIGHUP, sighup)
+
+    backoff = 5
+    while not stop_flag:
+        cfg = load_config_fresh()
+        child = start_child_from(cfg)
+
+        # wait until child exits or we get a signal
+        while child.poll() is None and not stop_flag and not reload_flag:
+            time.sleep(1)
+
+        if stop_flag:
+            stop_processes()
+            break
+
+        if reload_flag:
+            reload_flag = False
+            stop_processes()
+            backoff = 5
+            continue  # immediate restart with new config
+
+        # child ended unexpectedly → restart with backoff (cap 60s)
+        time.sleep(backoff)
+        backoff = min(backoff * 2, 60)
+
+# -------- CLI entrypoint (start/stop unchanged; run added) --------
 if __name__ == "__main__":
-    if len(sys.argv) != 2 or sys.argv[1] not in ["start", "stop"]:
-        print("Usage: python wspr_control.py <start|stop>")
+    if len(sys.argv) != 2 or sys.argv[1] not in ["start", "stop", "run"]:
+        print("Usage: python wspr_control.py <start|stop|run>")
         sys.exit(1)
 
+    # Original handlers for start/stop (unchanged)
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
@@ -131,9 +192,14 @@ if __name__ == "__main__":
             receive()
         else:
             print("Invalid configuration: transmit_or_receive_option should be either 'transmit' or 'receive'.")
-        # Exit immediately to return control to the command line
         sys.exit(0)
-    elif sys.argv[1] == "stop":
+
+    if sys.argv[1] == "stop":
         stop_processes()
+        sys.exit(0)
+
+    if sys.argv[1] == "run":
+        # New supervised mode (additive)
+        run_supervisor()
         sys.exit(0)
 

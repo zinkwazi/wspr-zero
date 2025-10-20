@@ -8,35 +8,35 @@
 #
 # Defaults:
 #   - Repo root: /opt/wsprzero/wspr-zero
-#   - Service:   wspr.service  (enabled & started unless --no-enable)
-#   - Watcher:   wspr.path     (optional via --with-watch)
+#   - Service:   wspr-service.service  (enabled & started unless --no-enable)
+#   - Watcher:   wspr-service.path     (installed by default; see INSTALL_WATCH)
 #
-# Optional flags:
-#   --with-watch       Auto-reload on wspr-config.json changes
+# Optional flags (kept the same):
+#   --with-watch       Auto-reload on wspr-config.json changes (no-op: default on)
 #   --root <dir>       Custom repo root (default above)
 #   --uninstall        Remove service (and watcher if present)
 #   --no-enable        Install but don’t enable/start
 #
 # Quick start:
 #   sudo chmod +x scripts/install-wspr-service.sh
-#   sudo scripts/install-wspr-service.sh --with-watch
+#   sudo scripts/install-wspr-service.sh
 #
 # Useful commands:
 #   # Service lifecycle
-#   sudo systemctl status wspr
-#   sudo systemctl start wspr
-#   sudo systemctl stop wspr
-#   sudo systemctl restart wspr
-#   sudo systemctl reload wspr   # stop+start to re-read JSON
+#   sudo systemctl status  wspr-service
+#   sudo systemctl start   wspr-service
+#   sudo systemctl stop    wspr-service
+#   sudo systemctl restart wspr-service
+#   sudo systemctl reload  wspr-service   # stop+start to re-read JSON
 #
 #   # Logs
-#   journalctl -u wspr -f
+#   journalctl -u wspr-service -f
 #   tail -f /opt/wsprzero/wspr-zero/logs/wspr-transmit.log
 #   tail -f /opt/wsprzero/wspr-zero/logs/wspr-receive.log
 #
 #   # Edit config, then reload
 #   sudo vi /opt/wsprzero/wspr-zero/wspr-config.json
-#   sudo systemctl reload wspr
+#   sudo systemctl reload wspr-service
 #
 # Notes:
 #   - python3-psutil is assumed present.
@@ -44,8 +44,8 @@
 #   - Runs as root (wsprryPi/kill operations often need it).
 set -euo pipefail
 
-SERVICE_NAME="wspr.service"
-RELOAD_SERVICE_NAME="wspr-reload.service"
+SERVICE_NAME="wspr-service.service"
+RELOAD_SERVICE_NAME="wspr-service-reload.service"
 PATH_UNIT_NAME="wspr-service.path"
 
 WSPR_ROOT_DEFAULT="/opt/wsprzero/wspr-zero"
@@ -59,11 +59,11 @@ ENABLE_AFTER_INSTALL=1
 # -------- args --------
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --with-watch) INSTALL_WATCH=1; shift ;;
+    --with-watch) INSTALL_WATCH=1; shift ;;  # default already on
     --root) WSPR_ROOT="${2:-}"; [[ -z "${WSPR_ROOT}" ]] && { echo "Missing path for --root"; exit 2; }; shift 2 ;;
     --uninstall) UNINSTALL=1; shift ;;
     --no-enable) ENABLE_AFTER_INSTALL=0; shift ;;
-    -h|--help) sed -n '1,140p' "$0"; exit 0 ;;
+    -h|--help) sed -n '1,160p' "$0"; exit 0 ;;
     *) echo "Unknown option: $1"; exit 2 ;;
   esac
 done
@@ -118,7 +118,7 @@ need_root; need_systemd
 # Ensure logs dir
 mkdir -p "$WSPR_ROOT/logs"
 
-# -------- write wspr.service --------
+# -------- write wspr-service.service --------
 cat > "/etc/systemd/system/${SERVICE_NAME}" <<EOF
 [Unit]
 Description=WSPR-zero controller (reads ${WSPR_ROOT}/wspr-config.json)
