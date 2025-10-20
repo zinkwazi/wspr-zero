@@ -1,0 +1,137 @@
+{
+    "meta": [
+        {
+            "name": "id",
+            "type": "UInt64"
+        },
+        {
+            "name": "time",
+            "type": "DateTime"
+        },
+        {
+            "name": "band",
+            "type": "Int16"
+        },
+        {
+            "name": "rx_sign",
+            "type": "LowCardinality(String)"
+        },
+        {
+            "name": "rx_lat",
+            "type": "Float32"
+        },
+        {
+            "name": "rx_lon",
+            "type": "Float32"
+        },
+        {
+            "name": "rx_loc",
+            "type": "LowCardinality(String)"
+        },
+        {
+            "name": "tx_sign",
+            "type": "LowCardinality(String)"
+        },
+        {
+            "name": "tx_lat",
+            "type": "Float32"
+        },
+        {
+            "name": "tx_lon",
+            "type": "Float32"
+        },
+        {
+            "name": "tx_loc",
+            "type": "LowCardinality(String)"
+        },
+        {
+            "name": "distance",
+            "type": "UInt16"
+        },
+        {
+            "name": "azimuth",
+            "type": "UInt16"
+        },
+        {
+            "name": "rx_azimuth",
+            "type": "UInt16"
+        },
+        {
+            "name": "frequency",
+            "type": "UInt32"
+        },
+        {
+            "name": "power",
+            "type": "Int8"
+        },
+        {
+            "name": "snr",
+            "type": "Int8"
+        },
+        {
+            "name": "drift",
+            "type": "Int8"
+        },
+        {
+            "name": "version",
+            "type": "LowCardinality(String)"
+        },
+        {
+            "name": "code",
+            "type": "Int8"
+        }
+    ],
+    "data": [
+        {
+            "id": "7816106919",
+            "time": "2024-06-07 08:46:00",
+            "band": 10,
+            "rx_sign": "K6FTP",
+            "rx_lat": 34.438,
+            "rx_lon": -119.875,
+            "rx_loc": "DM04bk",
+            "tx_sign": "L9LYR",
+            "tx_lat": -89.521,
+            "tx_lon": -107.042,
+            "tx_loc": "DA60",
+            "distance": 13785,
+            "azimuth": 347,
+            "rx_azimuth": 179,
+            "frequency": 10140104,
+            "power": 23,
+            "snr": -12,
+            "drift": 0,
+            "version": "wspr-zero",
+            "code": 1
+        },
+        {
+            "id": "7816916304",
+            "time": "2024-06-07 12:42:00",
+            "band": 10,
+            "rx_sign": "K6FTP",
+            "rx_lat": 34.438,
+            "rx_lon": -119.875,
+            "rx_loc": "DM04bk",
+            "tx_sign": "0O8EPH",
+            "tx_lat": -60.521,
+            "tx_lon": -151.042,
+            "tx_loc": "BC49",
+            "distance": 10935,
+            "azimuth": 26,
+            "rx_azimuth": 194,
+            "frequency": 10140279,
+            "power": 10,
+            "snr": -22,
+            "drift": 0,
+            "version": "wspr-zero",
+            "code": 1
+        }
+    ],
+    "rows": 2,
+    "rows_before_limit_at_least": 2,
+    "statistics": {
+        "elapsed": 0.043494759,
+        "rows_read": 5663021,
+        "bytes_read": 45513200
+    }
+}

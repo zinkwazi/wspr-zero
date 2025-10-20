@@ -1,5 +1,5 @@
 #!/bin/bash
-# reset-img.sh — sanitize and reset a Raspberry Pi image before re-imaging or hand-off
+# reset-img.sh — sanitize and reset a WSPR-zero Raspberry Pi image before re-imaging or hand-off
 #
 # WHAT IT DOES
 #   - Confirms intent, requires root, and runs with strict bash options
@@ -64,6 +64,9 @@ for dir in /home/*; do
 done
 rm -f /root/.bash_history || true
 rm -rf /root/.cache/* || true
+
+# Remove the WSPR-zero clock calibration file
+sudo rm -f /var/lib/wspr-zero/f_pwm_clk
 
 # Remove DHCP leases (both isc-dhcp and dhcpcd5 on Raspberry Pi OS)
 rm -f /var/lib/dhcp/* || true

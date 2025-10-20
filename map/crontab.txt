@@ -1,0 +1,1 @@
+*/15 * * * * /usr/bin/python3 /home/wspr-zero/public_html/map/wspr-data-fetch.py > /dev/null 2>&1

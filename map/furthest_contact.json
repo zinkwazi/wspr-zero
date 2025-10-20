@@ -1,0 +1,26 @@
+{
+    "TX": {
+        "type": "TX",
+        "tx_sign": "K6FTP",
+        "rx_sign": "DP0GVN/1",
+        "distance": 14383.0,
+        "time": "2024-06-07 09:10:00",
+        "tx_lat": 34.438,
+        "tx_lon": -119.875,
+        "rx_lat": -70.646,
+        "rx_lon": -8.292,
+        "frequency": 10140349
+    },
+    "RX": {
+        "type": "RX",
+        "tx_sign": "VK6PK",
+        "rx_sign": "K6FTP",
+        "distance": 9529.0,
+        "time": "2024-06-21 21:24:00",
+        "tx_lat": -31.812,
+        "tx_lon": 116.375,
+        "rx_lat": -22.562,
+        "rx_lon": 17.042,
+        "frequency": 10140200
+    }
+}

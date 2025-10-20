@@ -1,0 +1,4 @@
+<FilesMatch "\.py$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
