@@ -75,6 +75,12 @@ echo "IPQoS 0x00" | sudo tee -a /etc/ssh/sshd_config
 
 Contributions to the WSPR-zero project are welcome! Please refer to the issues tab on GitHub to find tasks that need help or submit your suggestions and contributions via pull requests.
 
+## TX & RX Software
+- **WsprryPi-zero** is a fork of WsprryPi and has been compiled for the 64 bit Raspberry Pi zero.
+  - https://github.com/zinkwazi/WsprryPi-zero
+- **RTL-SDR** 
+  - https://github.com/Guenael/rtlsdr-wsprd
+
 ## Licensing
 
 - This project is licensed under the MIT License.
