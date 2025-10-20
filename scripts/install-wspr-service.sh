@@ -3,19 +3,22 @@
 #
 # WSPR-zero systemd service installer
 # -----------------------------------
-# Installs a systemd unit to control WSPR using:
+# Installs systemd units to control WSPR using:
 #   /opt/wsprzero/wspr-zero/scripts/wspr_control.py
 #
 # Defaults:
-#   - Repo root: /opt/wsprzero/wspr-zero
-#   - Service:   wspr-service.service  (enabled & started unless --no-enable)
-#   - Watcher:   wspr-service.path     (installed by default; see INSTALL_WATCH)
+#   - Repo root:  /opt/wsprzero/wspr-zero
+#   - Service:    wspr-service.service  (enabled & started unless --no-enable)
+#   - Mode:       supervised (auto-restart if child dies; prefers robustness)
+#   - Watcher:    wspr-service.path     (installed by default; triggers reload)
 #
-# Optional flags (kept the same):
-#   --with-watch       Auto-reload on wspr-config.json changes (no-op: default on)
+# Optional flags:
 #   --root <dir>       Custom repo root (default above)
-#   --uninstall        Remove service (and watcher if present)
 #   --no-enable        Install but don’t enable/start
+#   --uninstall        Remove service + watcher
+#   --no-watch         Don’t install the watcher
+#   --supervised       Force supervised mode (default)
+#   --oneshot          Install legacy oneshot unit (no auto-restart)
 #
 # Quick start:
 #   sudo chmod +x scripts/install-wspr-service.sh
@@ -27,7 +30,7 @@
 #   sudo systemctl start   wspr-service
 #   sudo systemctl stop    wspr-service
 #   sudo systemctl restart wspr-service
-#   sudo systemctl reload  wspr-service   # stop+start to re-read JSON
+#   sudo systemctl reload  wspr-service   # supervisor catches SIGHUP, reloads JSON
 #
 #   # Logs
 #   journalctl -u wspr-service -f
@@ -40,13 +43,16 @@
 #
 # Notes:
 #   - python3-psutil is assumed present.
-#   - Unit uses Type=oneshot + RemainAfterExit so ExecStop/Reload work.
-#   - Runs as root (wsprryPi/kill operations often need it).
+#   - Supervised mode uses: Type=simple + Restart=always and runs: wspr_control.py run
+#   - Oneshot mode remains available (no auto-restart).
 set -euo pipefail
 
 SERVICE_NAME="wspr-service.service"
 RELOAD_SERVICE_NAME="wspr-service-reload.service"
 PATH_UNIT_NAME="wspr-service.path"
+
+# legacy names to purge if they still exist
+LEGACY_UNITS=("wspr.service" "wspr.path" "wspr-reload.service")
 
 WSPR_ROOT_DEFAULT="/opt/wsprzero/wspr-zero"
 WSPR_ROOT="$WSPR_ROOT_DEFAULT"
@@ -55,20 +61,24 @@ CONTROLLER=""  # set after WSPR_ROOT
 INSTALL_WATCH=1
 UNINSTALL=0
 ENABLE_AFTER_INSTALL=1
+SERVICE_MODE="supervised"   # default; set to "oneshot" with --oneshot
 
 # -------- args --------
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --with-watch) INSTALL_WATCH=1; shift ;;  # default already on
-    --root) WSPR_ROOT="${2:-}"; [[ -z "${WSPR_ROOT}" ]] && { echo "Missing path for --root"; exit 2; }; shift 2 ;;
-    --uninstall) UNINSTALL=1; shift ;;
-    --no-enable) ENABLE_AFTER_INSTALL=0; shift ;;
-    -h|--help) sed -n '1,160p' "$0"; exit 0 ;;
-    *) echo "Unknown option: $1"; exit 2 ;;
+    --root)        WSPR_ROOT="${2:-}"; [[ -z "${WSPR_ROOT}" ]] && { echo "Missing path for --root"; exit 2; }; shift 2 ;;
+    --no-enable)   ENABLE_AFTER_INSTALL=0; shift ;;
+    --uninstall)   UNINSTALL=1; shift ;;
+    --no-watch)    INSTALL_WATCH=0; shift ;;
+    --supervised)  SERVICE_MODE="supervised"; shift ;;
+    --oneshot)     SERVICE_MODE="oneshot"; shift ;;
+    -h|--help)     sed -n '1,200p' "$0"; exit 0 ;;
+    *)             echo "Unknown option: $1"; exit 2 ;;
   esac
 done
 
 CONTROLLER="${WSPR_ROOT}/scripts/wspr_control.py"
+CONFIG_JSON="${WSPR_ROOT}/wspr-config.json"
 
 # -------- helpers --------
 need_root() {
@@ -77,53 +87,62 @@ need_root() {
     exit 1
   fi
 }
-
 need_systemd() {
-  if ! command -v systemctl >/dev/null 2>&1; then
-    echo "systemctl not found; this script requires systemd." >&2
-    exit 1
-  fi
-  if [[ "$(ps -o comm= -p 1)" != "systemd" ]]; then
-    echo "PID 1 is not systemd; aborting." >&2
-    exit 1
-  fi
+  command -v systemctl >/dev/null 2>&1 || { echo "systemctl not found."; exit 1; }
+  [[ "$(ps -o comm= -p 1)" == "systemd" ]] || { echo "PID 1 is not systemd."; exit 1; }
 }
-
 stop_disable_rm_unit() {
   local unit="$1"
   if systemctl list-unit-files | grep -q "^${unit}"; then
-    systemctl disable --now "$unit" >/dev/null 2>&1 || true
+    systemctl disable --now "${unit}" >/dev/null 2>&1 || true
   fi
   rm -f "/etc/systemd/system/${unit}"
 }
-
-# -------- uninstall --------
-if [[ $UNINSTALL -eq 1 ]]; then
-  need_root; need_systemd
-  echo "Uninstalling ${SERVICE_NAME} and optional watcher…"
-  stop_disable_rm_unit "$PATH_UNIT_NAME"
-  stop_disable_rm_unit "$RELOAD_SERVICE_NAME"
-  stop_disable_rm_unit "$SERVICE_NAME"
+uninstall_all() {
+  echo "Uninstalling ${SERVICE_NAME} and watcher…"
+  stop_disable_rm_unit "${PATH_UNIT_NAME}"
+  stop_disable_rm_unit "${RELOAD_SERVICE_NAME}"
+  stop_disable_rm_unit "${SERVICE_NAME}"
+  # also clean any legacy-named units
+  for u in "${LEGACY_UNITS[@]}"; do stop_disable_rm_unit "$u"; done
   systemctl daemon-reload
   echo "Done."
-  exit 0
-fi
+}
 
-# -------- preflight --------
-need_root; need_systemd
-[[ -d "$WSPR_ROOT" ]] || { echo "Repo root not found: $WSPR_ROOT" >&2; exit 1; }
-[[ -f "$CONTROLLER" ]] || { echo "Controller not found: $CONTROLLER" >&2; exit 1; }
-[[ -x /usr/bin/python3 ]] || { echo "/usr/bin/python3 not found." >&2; exit 1; }
-
-# Ensure logs dir
-mkdir -p "$WSPR_ROOT/logs"
-
-# -------- write wspr-service.service --------
-cat > "/etc/systemd/system/${SERVICE_NAME}" <<EOF
+write_service_unit_supervised() {
+  cat > "/etc/systemd/system/${SERVICE_NAME}" <<EOF
 [Unit]
-Description=WSPR-zero controller (reads ${WSPR_ROOT}/wspr-config.json)
+Description=WSPR-zero controller (reads ${CONFIG_JSON})
 Wants=network-online.target time-sync.target
 After=network-online.target time-sync.target
+ConditionPathExists=${CONTROLLER}
+
+[Service]
+Type=simple
+WorkingDirectory=${WSPR_ROOT}
+User=root
+Environment=PYTHONUNBUFFERED=1
+Restart=always
+RestartSec=5
+KillMode=control-group
+ExecStart=/usr/bin/python3 ${CONTROLLER} run
+ExecReload=/bin/kill -HUP \$MAINPID
+ExecStop=/bin/kill -TERM \$MAINPID
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  chmod 0644 "/etc/systemd/system/${SERVICE_NAME}"
+}
+
+write_service_unit_oneshot() {
+  cat > "/etc/systemd/system/${SERVICE_NAME}" <<EOF
+[Unit]
+Description=WSPR-zero controller (reads ${CONFIG_JSON})
+Wants=network-online.target time-sync.target
+After=network-online.target time-sync.target
+ConditionPathExists=${CONTROLLER}
 
 [Service]
 Type=oneshot
@@ -139,13 +158,13 @@ TimeoutStopSec=30
 [Install]
 WantedBy=multi-user.target
 EOF
-chmod 0644 "/etc/systemd/system/${SERVICE_NAME}"
+  chmod 0644 "/etc/systemd/system/${SERVICE_NAME}"
+}
 
-# -------- optional watcher (.path + reload service) --------
-if [[ $INSTALL_WATCH -eq 1 ]]; then
+write_watcher_units() {
   cat > "/etc/systemd/system/${RELOAD_SERVICE_NAME}" <<EOF
 [Unit]
-Description=Reload WSPR when wspr-config.json changes
+Description=Reload wspr-service when wspr-config.json changes
 Requires=${SERVICE_NAME}
 After=${SERVICE_NAME}
 
@@ -160,19 +179,49 @@ EOF
 Description=Watch wspr-config.json for changes
 
 [Path]
-# Use both to catch in-place writes and atomic replaces (vim, etc.)
-PathChanged=${WSPR_ROOT}/wspr-config.json
-PathModified=${WSPR_ROOT}/wspr-config.json
+PathChanged=${CONFIG_JSON}
+PathModified=${CONFIG_JSON}
 Unit=${RELOAD_SERVICE_NAME}
 
 [Install]
 WantedBy=multi-user.target
 EOF
   chmod 0644 "/etc/systemd/system/${PATH_UNIT_NAME}"
+}
+
+# -------- main --------
+need_root
+need_systemd
+
+if [[ $UNINSTALL -eq 1 ]]; then
+  uninstall_all
+  exit 0
 fi
 
-# -------- enable/start --------
+[[ -d "$WSPR_ROOT" ]] || { echo "Repo root not found: $WSPR_ROOT"; exit 1; }
+[[ -f "$CONTROLLER" ]] || { echo "Controller not found: $CONTROLLER"; exit 1; }
+command -v /usr/bin/python3 >/dev/null 2>&1 || { echo "/usr/bin/python3 not found."; exit 1; }
+
+# ensure logs dir exists for first run
+mkdir -p "${WSPR_ROOT}/logs"
+
+# purge any legacy-named units to avoid confusion
+for u in "${LEGACY_UNITS[@]}"; do stop_disable_rm_unit "$u"; done
+
+# write the chosen service unit
+if [[ "$SERVICE_MODE" == "supervised" ]]; then
+  write_service_unit_supervised
+else
+  write_service_unit_oneshot
+fi
+
+# watcher (default ON; opt-out with --no-watch)
+if [[ $INSTALL_WATCH -eq 1 ]]; then
+  write_watcher_units
+fi
+
 systemctl daemon-reload
+
 if [[ $ENABLE_AFTER_INSTALL -eq 1 ]]; then
   systemctl enable --now "${SERVICE_NAME}"
   if [[ $INSTALL_WATCH -eq 1 ]]; then
@@ -180,7 +229,7 @@ if [[ $ENABLE_AFTER_INSTALL -eq 1 ]]; then
   fi
 fi
 
-echo "Installed ${SERVICE_NAME} (controller: ${CONTROLLER})."
+echo "Installed ${SERVICE_NAME} in ${SERVICE_MODE} mode (controller: ${CONTROLLER})."
 [[ $ENABLE_AFTER_INSTALL -eq 1 ]] && echo "Service enabled and started."
 [[ $INSTALL_WATCH -eq 1 ]] && echo "Watcher installed: ${PATH_UNIT_NAME}."
 echo "Done."
