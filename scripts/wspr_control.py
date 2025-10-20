@@ -148,30 +148,24 @@ def sighup(_sig, _frm):
     global reload_flag; reload_flag = True
 
 def run_supervisor():
+    global stop_flag, reload_flag
     signal.signal(signal.SIGTERM, sigterm)
     signal.signal(signal.SIGINT, sigterm)
     signal.signal(signal.SIGHUP, sighup)
-
     backoff = 5
     while not stop_flag:
         cfg = load_config_fresh()
         child = start_child_from(cfg)
-
-        # wait until child exits or we get a signal
         while child.poll() is None and not stop_flag and not reload_flag:
             time.sleep(1)
-
         if stop_flag:
             stop_processes()
             break
-
         if reload_flag:
             reload_flag = False
             stop_processes()
             backoff = 5
-            continue  # immediate restart with new config
-
-        # child ended unexpectedly → restart with backoff (cap 60s)
+            continue
         time.sleep(backoff)
         backoff = min(backoff * 2, 60)
 
