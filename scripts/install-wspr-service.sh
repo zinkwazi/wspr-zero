@@ -46,7 +46,7 @@ set -euo pipefail
 
 SERVICE_NAME="wspr.service"
 RELOAD_SERVICE_NAME="wspr-reload.service"
-PATH_UNIT_NAME="wspr.path"
+PATH_UNIT_NAME="wspr-service.path"
 
 WSPR_ROOT_DEFAULT="/opt/wsprzero/wspr-zero"
 WSPR_ROOT="$WSPR_ROOT_DEFAULT"
