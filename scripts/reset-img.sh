@@ -66,7 +66,6 @@ for dir in /home/*; do
   [[ -d "$dir" ]] || continue
   rm -f "$dir"/.bash_history || true
   rm -rf "$dir"/.cache/* || true
-  rm -rf "$dir"/.ssh/* || true
 done
 rm -f /root/.bash_history || true
 rm -rf /root/.cache/* || true
