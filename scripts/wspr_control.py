@@ -70,13 +70,45 @@ def receive():
         subprocess.Popen(rx_command, stdout=log_file, stderr=subprocess.STDOUT)
 
 def stop_processes():
-    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-        if proc.info['cmdline'] and ('wspr' in proc.info['cmdline'][0] or 'rtlsdr_wsprd' in proc.info['cmdline'][0]):
-            print(f"Stopping process {proc.info['pid']}: {proc.info['cmdline']}")
-            try:
-                os.system(f"sudo kill {proc.info['pid']}")
-            except psutil.AccessDenied:
-                print(f"Access denied when trying to terminate process {proc.info['pid']}")
+    WSPR_BIN = "/opt/wsprzero/WsprryPi-zero/wspr"
+    RTLSDR_BIN = "/opt/wsprzero/rtlsdr-wsprd/rtlsdr_wsprd"
+    TARGET_BASENAMES = {"wspr", "rtlsdr_wsprd"}
+
+    victims = []
+    for proc in psutil.process_iter(['pid', 'name', 'exe', 'cmdline']):
+        try:
+            cmd = proc.info.get('cmdline') or []
+            exe = proc.info.get('exe') or ''
+            base = os.path.basename(exe or (cmd[0] if cmd else ''))
+            full0 = cmd[0] if cmd else ''
+
+            is_target = (
+                exe in (WSPR_BIN, RTLSDR_BIN) or
+                base in TARGET_BASENAMES or
+                full0 in (WSPR_BIN, RTLSDR_BIN)
+            )
+
+            # Also stop a sudo wrapper that launches our targets
+            is_sudo_wrapper = (
+                base == "sudo" and any(
+                    "/WsprryPi-zero/wspr" in a or "rtlsdr_wsprd" in a
+                    for a in cmd[1:]
+                )
+            )
+
+            if is_target or is_sudo_wrapper:
+                victims.append(proc)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    # Graceful then forceful
+    for p in victims:
+        try: p.terminate()
+        except psutil.NoSuchProcess: pass
+    gone, alive = psutil.wait_procs(victims, timeout=5)
+    for p in alive:
+        try: p.kill()
+        except psutil.NoSuchProcess: pass
 
 def signal_handler(sig, frame):
     print('Stopping processes...')
