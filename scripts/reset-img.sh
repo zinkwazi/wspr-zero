@@ -50,10 +50,16 @@ fi
 rm -rf /tmp/* /var/tmp/* || true
 
 # Reset WSPR-zero (if present)
-if [[ -d /home/pi/wspr-zero ]]; then
-  rm -f /home/pi/wspr-zero/logs/* || true
-  rm -f /home/pi/wspr-zero/wspr-config.json || true
+if [[ -d /home/wsprzero/wspr-zero ]]; then
+  rm -f /home/wsprzero/wspr-zero/logs/* || true
+  rm -f /home/wsprzero/wspr-zero/wspr-config.json || true
 fi
+
+# Remove dev playground (if present)
+rm -rf /home/wsprzero/dev || true
+
+# Remove the WSPR-zero clock calibration file
+sudo rm -f /var/lib/wspr-zero/f_pwm_clk
 
 # Clear user histories and caches
 for dir in /home/*; do
@@ -64,9 +70,6 @@ for dir in /home/*; do
 done
 rm -f /root/.bash_history || true
 rm -rf /root/.cache/* || true
-
-# Remove the WSPR-zero clock calibration file
-sudo rm -f /var/lib/wspr-zero/f_pwm_clk
 
 # Remove DHCP leases (both isc-dhcp and dhcpcd5 on Raspberry Pi OS)
 rm -f /var/lib/dhcp/* || true
@@ -82,9 +85,6 @@ cat > /etc/wpa_supplicant/wpa_supplicant.conf <<'EOF'
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 update_config=1
 EOF
-
-# Remove dev playground (if present)
-rm -rf /home/pi/dev || true
 
 # Reset machine identity so a new ID is generated on next boot
 # (systemd uses /etc/machine-id; D-Bus may also store one)

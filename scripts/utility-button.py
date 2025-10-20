@@ -8,7 +8,7 @@ import pwd
 time.sleep(30)  # Delay 30 seconds
 
 # Ensure the log directory exists
-log_dir = '/home/pi/wspr-zero/logs'
+log_dir = '/opt/wsprzero/wspr-zero/logs'
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 
@@ -18,7 +18,7 @@ uid = user.pw_uid
 gid = user.pw_gid
 
 # Set up logging
-log_file = '/home/pi/wspr-zero/logs/wspr-zero-shutdown.log'
+log_file = '/opt/wsprzero/wspr-zero/logs/wspr-zero-shutdown.log'
 if not os.path.exists(log_file):
     open(log_file, 'a').close()  # Create the log file if it doesn't exist
 os.chown(log_file, uid, gid)  # Change ownership of the log file
@@ -62,7 +62,7 @@ def button_callback(channel):
 
         if button_presses >= 5:
             logging.info("Button pressed 5 times in a row. Entering Setup Mode.")
-            os.system("python3 /home/pi/wspr-zero/scripts/server_checkin.py")
+            os.system("python3 /opt/wsprzero/wspr-zero/scripts/server_checkin.py")
             # gbl button_presses = 0  # Reset count after sending data
 
     elif GPIO.input(channel) == 1:  # Button released (rising edge)

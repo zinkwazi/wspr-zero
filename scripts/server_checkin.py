@@ -20,7 +20,7 @@ uid = user.pw_uid
 gid = user.pw_gid
 
 # Set up log directory and log file
-log_dir = '/home/pi/wspr-zero/logs'
+log_dir = '/opt/wsprzero/wspr-zero/logs'
 log_file = os.path.join(log_dir, 'setup-post.log')
 
 # Create log directory if it doesn't exist
@@ -37,14 +37,14 @@ os.chmod(log_file, 0o664)  # Set appropriate permissions for the log file
 
 # Function to read wspr-config.json
 def read_wspr_config():
-    with open('/home/pi/wspr-zero/wspr-config.json', 'r') as file:
+    with open('/opt/wsprzero/wspr-zero/wspr-config.json', 'r') as file:
         data = json.load(file)
     return data
 
 # Function to write wspr-config.json
 def write_wspr_config(existing_data, new_data):
     existing_data.update(new_data)
-    with open('/home/pi/wspr-zero/wspr-config.json', 'w') as file:
+    with open('/opt/wsprzero/wspr-zero/wspr-config.json', 'w') as file:
         json.dump(existing_data, file, indent=4)
 
 # Function to send data to the server
@@ -89,12 +89,12 @@ def blink_led():
 # Function to stop the WSPR process
 def stop_wspr():
     log_message("Stopping WSPR process")
-    subprocess.Popen(['python', '/home/pi/wspr-zero/wspr_control.py', 'stop'])
+    subprocess.Popen(['python', '/opt/wsprzero/wspr-zero/wspr_control.py', 'stop'])
 
 # Function to start the WSPR process
 def start_wspr():
     log_message("Starting WSPR process")
-    subprocess.Popen(['python', '/home/pi/wspr-zero/wspr_control.py', 'start'])
+    subprocess.Popen(['python', '/opt/wsprzero/wspr-zero/wspr_control.py', 'start'])
 
 # Main function
 def main():
