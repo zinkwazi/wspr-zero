@@ -1,9 +1,0 @@
-#Ansible: Start tunnel on reboot
-@reboot ~/scripts/tunnel.sh
-@reboot ~/wspr-zero/wspr-transmit
-#@reboot ~/wspr-zero/wspr-receive
-@reboot python ~/wspr-zero/scripts/wspr-boot-config.py
-@reboot sudo python ~/wspr-zero/scripts/utility-button.py
-*/10 * * * * sudo python ~/wspr-zero/UPS-Lite/wspr-battery.py
-#Ansible: Reboot daily
-0 1 * * * sudo reboot
