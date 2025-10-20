@@ -7,6 +7,7 @@ import threading
 import subprocess
 import pwd
 import os
+import getpass
 
 # GPIO pin for WSPR-zero LED
 led_pin = 18
@@ -14,26 +15,44 @@ led_pin = 18
 # Define the URL of the remote server
 server_url = "https://wspr-zero.com/ez-config/server-listener.php"
 
-# Get the UID of the user running the script
-user = pwd.getpwnam("pi")
-uid = user.pw_uid
-gid = user.pw_gid
+# Resolve the target user for log ownership:
+# - Prefer current effective user
+# - You can override with env WSPR_LOG_USER if you ever need to
+target_user = os.environ.get("WSPR_LOG_USER", getpass.getuser())
+try:
+    pw = pwd.getpwnam(target_user)
+    uid, gid = pw.pw_uid, pw.pw_gid
+except KeyError:
+    uid, gid = os.geteuid(), os.getegid()   # fallback
+
+def safe_chown(path, uid, gid):
+    try:
+        os.chown(path, uid, gid)
+    except PermissionError:
+        # Non-root users can't chown; that's fine — just continue
+        pass
+
+def safe_chmod(path, mode):
+    try:
+        os.chmod(path, mode)
+    except PermissionError:
+        pass
 
 # Set up log directory and log file
 log_dir = '/opt/wsprzero/wspr-zero/logs'
 log_file = os.path.join(log_dir, 'setup-post.log')
 
 # Create log directory if it doesn't exist
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
-    os.chown(log_dir, uid, gid)  # Change ownership of the log directory
-    os.chmod(log_dir, 0o775)  # Set appropriate permissions for the log directory
+os.makedirs(log_dir, exist_ok=True)
+safe_chown(log_dir, uid, gid)
+# setgid bit so files inherit the directory's group when created by root later
+safe_chmod(log_dir, 0o2775)
 
 # Create log file if it doesn't exist
 if not os.path.exists(log_file):
     open(log_file, 'a').close()
-os.chown(log_file, uid, gid)  # Change ownership of the log file
-os.chmod(log_file, 0o664)  # Set appropriate permissions for the log file
+safe_chown(log_file, uid, gid)
+safe_chmod(log_file, 0o664)
 
 # Function to read wspr-config.json
 def read_wspr_config():
@@ -89,12 +108,18 @@ def blink_led():
 # Function to stop the WSPR process
 def stop_wspr():
     log_message("Stopping WSPR process")
-    subprocess.Popen(['python', '/opt/wsprzero/wspr-zero/wspr_control.py', 'stop'])
+    cmd = ['/usr/bin/python3', '/opt/wsprzero/wspr-zero/scripts/wspr_control.py', 'stop']
+    if os.geteuid() != 0:
+        cmd = ['sudo', '-n'] + cmd
+    subprocess.Popen(cmd)
 
 # Function to start the WSPR process
 def start_wspr():
     log_message("Starting WSPR process")
-    subprocess.Popen(['python', '/opt/wsprzero/wspr-zero/wspr_control.py', 'start'])
+    cmd = ['/usr/bin/python3', '/opt/wsprzero/wspr-zero/scripts/wspr_control.py', 'start']
+    if os.geteuid() != 0:
+        cmd = ['sudo', '-n'] + cmd
+    subprocess.Popen(cmd)
 
 # Main function
 def main():
