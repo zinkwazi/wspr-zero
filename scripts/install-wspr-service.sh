@@ -121,6 +121,7 @@ ConditionPathExists=${CONTROLLER}
 Type=simple
 WorkingDirectory=${WSPR_ROOT}
 User=root
+UMask=0002
 Environment=PYTHONUNBUFFERED=1
 Restart=always
 RestartSec=5
@@ -204,6 +205,18 @@ command -v /usr/bin/python3 >/dev/null 2>&1 || { echo "/usr/bin/python3 not foun
 
 # ensure logs dir exists for first run
 mkdir -p "${WSPR_ROOT}/logs"
+# ensure logs stay group-inheriting & writable
+getent group wsprzero >/dev/null || groupadd --system wsprzero
+chgrp -R wsprzero "${WSPR_ROOT}/logs"
+# SGID on dirs so new files inherit the wsprzero group
+find "${WSPR_ROOT}/logs" -type d -exec chmod 2775 {} +
+# regular files rw-rw-r--
+find "${WSPR_ROOT}/logs" -type f -exec chmod 0664 {} + || true
+
+# (optional) let the login user read journals & logs without sudo
+if id -u wsprzero >/dev/null 2>&1; then
+  usermod -aG wsprzero,systemd-journal wsprzero || true
+fi
 
 # purge any legacy-named units to avoid confusion
 for u in "${LEGACY_UNITS[@]}"; do stop_disable_rm_unit "$u"; done
