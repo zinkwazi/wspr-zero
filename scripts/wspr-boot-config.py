@@ -18,9 +18,9 @@ DEFAULT_CONFIG = {
     "rx_band_frequency": "30m",
     "tx_band_frequency": [
         "30m",
-        "0",
         "30m",
-        "0"
+        "30m",
+        "30m"
     ],
     "transmit_or_receive_option": "",
     "maidenhead_grid": "",
