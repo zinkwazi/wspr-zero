@@ -7,22 +7,41 @@ import sys
 import os
 import psutil
 
+# --- register signal handlers immediately ---
+stop_flag = False
+reload_flag = False
+def sigterm(_sig, _frm):
+    global stop_flag; stop_flag = True
+def sighup(_sig, _frm):
+    global reload_flag; reload_flag = True
+
+signal.signal(signal.SIGTERM, sigterm)
+signal.signal(signal.SIGINT,  sigterm)
+signal.signal(signal.SIGHUP,  sighup)
+
 # --- Paths / constants ---
 CONFIG_PATH = '/opt/wsprzero/wspr-zero/wspr-config.json'
 LOG_DIR = '/opt/wsprzero/wspr-zero/logs'
 WSPR_BIN = '/opt/wsprzero/WsprryPi-zero/wspr'
 RTLSDR_BIN = '/opt/wsprzero/rtlsdr-wsprd/rtlsdr_wsprd'
 
-# --- Old behavior: load config once for start/stop flows (unchanged) ---
-with open(CONFIG_PATH) as config_file:
-    config = json.load(config_file)
+if not os.path.isfile(WSPR_BIN):  print(f"ERROR: {WSPR_BIN} not found", flush=True)
+if not os.path.isfile(RTLSDR_BIN): print(f"ERROR: {RTLSDR_BIN} not found", flush=True)
+
+# If the config is missing/corrupt, don't crash the daemon on import.
+try:
+    with open(CONFIG_PATH) as f:
+        config = json.load(f)
+except Exception as e:
+    print(f"WARNING: could not load initial config: {e}", flush=True)
+    config = {}
 
 # Extract relevant data from the configuration (unchanged)
-call_sign = config["call_sign"]
-tx_band_frequencies = config["tx_band_frequency"]
-rx_band_frequency = config["rx_band_frequency"]
-transmit_or_receive = config["transmit_or_receive_option"]
-grid_location = config["maidenhead_grid"]
+call_sign = config.get("call_sign", "")
+tx_band_frequencies = config.get("tx_band_frequency", [])
+rx_band_frequency = config.get("rx_band_frequency", "")
+transmit_or_receive = config.get("transmit_or_receive_option", "")
+grid_location = config.get("maidenhead_grid", "")
 
 def get_uptime():
     with open('/proc/uptime', 'r') as f:
@@ -37,7 +56,6 @@ def transmit():
         time.sleep(60)
 
     tx_command = [
-        "sudo",                 # preserved
         WSPR_BIN,
         "-r", "-o", "-f",       # preserved (skip NTP per your workflow)
         call_sign,
@@ -110,25 +128,40 @@ def signal_handler(sig, frame):
     print('Processes stopped. Exiting.')
     sys.exit(0)
 
-# -------- New: supervised run mode (additive only) --------
-stop_flag = False
-reload_flag = False
-
 def load_config_fresh():
-    with open(CONFIG_PATH) as f:
-        return json.load(f)
+    try:
+        with open(CONFIG_PATH) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"WARNING: {CONFIG_PATH} missing; retrying…", flush=True)
+    except json.JSONDecodeError as e:
+        print(f"WARNING: invalid JSON in {CONFIG_PATH}: {e}; retrying…", flush=True)
+    except Exception as e:
+        print(f"WARNING: error reading {CONFIG_PATH}: {e}; retrying…", flush=True)
+    # fall back to last-known (import-time) values so we keep running
+    return {
+        "call_sign": config.get("call_sign"),
+        "tx_band_frequency": config.get("tx_band_frequency", []),
+        "rx_band_frequency": config.get("rx_band_frequency"),
+        "transmit_or_receive_option": config.get("transmit_or_receive_option", ""),
+        "maidenhead_grid": config.get("maidenhead_grid")
+    }
 
 def start_child_from(cfg):
     tor = (cfg.get("transmit_or_receive_option") or "").strip().lower()
     os.makedirs(LOG_DIR, exist_ok=True)
 
     if tor == "transmit":
-        # Preserve TX-only boot delay here too
         if get_uptime() < 120:
             time.sleep(60)
 
-        cmd = ["sudo", WSPR_BIN, "-r", "-o", "-f", cfg["call_sign"], cfg["maidenhead_grid"], "23"] \
-              + list(cfg["tx_band_frequency"])
+        tx = cfg.get("tx_band_frequency", [])
+        if isinstance(tx, str):
+            tx = [tx]
+        elif not isinstance(tx, (list, tuple)):
+            tx = [str(tx)]
+
+        cmd = [WSPR_BIN, "-r", "-o", "-f", cfg["call_sign"], cfg["maidenhead_grid"], "23"] + list(tx)
         log_path = os.path.join(LOG_DIR, "wspr-transmit.log")
     elif tor == "receive":
         cmd = [RTLSDR_BIN, "-f", cfg["rx_band_frequency"], "-c", cfg["call_sign"], "-l",
@@ -136,28 +169,27 @@ def start_child_from(cfg):
         log_path = os.path.join(LOG_DIR, "wspr-receive.log")
     else:
         print("Invalid configuration: transmit_or_receive_option should be 'transmit' or 'receive'.", flush=True)
-        sys.exit(2)
+        raise RuntimeError("Invalid configuration: transmit_or_receive_option should be 'transmit' or 'receive'.")
 
-    log_file = open(log_path, "a")
-    return subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT)
-
-def sigterm(_sig, _frm):
-    global stop_flag; stop_flag = True
-
-def sighup(_sig, _frm):
-    global reload_flag; reload_flag = True
+    with open(log_path, "a") as log_file:
+        return subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT)
 
 def run_supervisor():
     global stop_flag, reload_flag
-    signal.signal(signal.SIGTERM, sigterm)
-    signal.signal(signal.SIGINT, sigterm)
-    signal.signal(signal.SIGHUP, sighup)
     backoff = 5
     while not stop_flag:
         cfg = load_config_fresh()
-        child = start_child_from(cfg)
+        try:
+            child = start_child_from(cfg)
+        except Exception as e:
+            print(f"ERROR: failed to start child: {e}", flush=True)
+            time.sleep(backoff)
+            backoff = min(backoff * 2, 60)
+            continue
+
         while child.poll() is None and not stop_flag and not reload_flag:
             time.sleep(1)
+
         if stop_flag:
             stop_processes()
             break
@@ -166,6 +198,7 @@ def run_supervisor():
             stop_processes()
             backoff = 5
             continue
+
         time.sleep(backoff)
         backoff = min(backoff * 2, 60)
 
@@ -178,6 +211,10 @@ if __name__ == "__main__":
     # Original handlers for start/stop (unchanged)
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+
+    if sys.argv[1] == "start" and (not call_sign or not grid_location):
+        print("ERROR: missing call_sign or maidenhead_grid in config")
+        sys.exit(2)
 
     if sys.argv[1] == "start":
         if transmit_or_receive == "transmit":
