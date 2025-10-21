@@ -101,7 +101,7 @@ User=root
 UMask=0002
 Environment=PYTHONUNBUFFERED=1
 
-TimeoutStartSec=300 
+TimeoutStartSec=120 
 # If main service running (manual start), stop it first; ignore error if inactive
 ExecStartPre=-/bin/systemctl stop ${MAIN_SERVICE}
 

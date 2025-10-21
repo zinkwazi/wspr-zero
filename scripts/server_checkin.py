@@ -72,7 +72,7 @@ def send_data_to_server(data):
         headers = {'Content-Type': 'application/json'}
         log_message(f"Sending data to server: {json.dumps(data, indent=4)}")
         # 5s connect, 15s read timeout
-        response = requests.post(server_url, headers=headers, json=data, timeout=(5, 15))
+        response = requests.post(server_url, headers=headers, json=data, timeout=(3, 7))
         if response.status_code == 200:
             return response.json()
         else:
@@ -155,11 +155,11 @@ def main():
         write_wspr_config(wspr_config, server_response)
 
     # Wait 5 seconds and then repeatedly request the config file 10 times without sending full config again
-    for _ in range(10):
+    for _ in range(5):
         server_response = send_data_to_server({'MAC_address': wspr_config['MAC_address']})
         if server_response:
             write_wspr_config(wspr_config, server_response)
-        time.sleep(5)
+        time.sleep(3)
 
     # Start the WSPR process to reload any config file changes
     start_wspr()
