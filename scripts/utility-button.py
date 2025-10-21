@@ -1,86 +1,57 @@
 import RPi.GPIO as GPIO
-import os
-import time
-import logging
-import pwd
+import os, time, logging, pwd, getpass
 
-# Delay start
-time.sleep(30)  # Delay 30 seconds
-
-# Ensure the log directory exists
+# --- log setup (user-agnostic, matches server_checkin.py) ---
 log_dir = '/opt/wsprzero/wspr-zero/logs'
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
+log_file = os.path.join(log_dir, 'wspr-zero-shutdown.log')
 
-# Get the UID of the user running the script
-user = pwd.getpwnam("pi")
-uid = user.pw_uid
-gid = user.pw_gid
+target_user = os.environ.get("WSPR_LOG_USER", getpass.getuser())
+try:
+    pw = pwd.getpwnam(target_user)
+    uid, gid = pw.pw_uid, pw.pw_gid
+except KeyError:
+    uid, gid = os.geteuid(), os.getegid()
 
-# Set up logging
-log_file = '/opt/wsprzero/wspr-zero/logs/wspr-zero-shutdown.log'
+def safe_chown(path, uid, gid):
+    try: os.chown(path, uid, gid)
+    except PermissionError: pass
+
+def safe_chmod(path, mode):
+    try: os.chmod(path, mode)
+    except PermissionError: pass
+
+os.makedirs(log_dir, exist_ok=True)
+safe_chown(log_dir, uid, gid)
+safe_chmod(log_dir, 0o2775)
+
 if not os.path.exists(log_file):
-    open(log_file, 'a').close()  # Create the log file if it doesn't exist
-os.chown(log_file, uid, gid)  # Change ownership of the log file
-os.chmod(log_file, 0o664)  # Set appropriate permissions for the log file
+    open(log_file, 'a').close()
+safe_chown(log_file, uid, gid)
+safe_chmod(log_file, 0o664)
 
 logging.basicConfig(filename=log_file, level=logging.INFO, format='%(asctime)s %(message)s')
 
-# Pin Definitions
-shutdown_pin = 19  # GPIO pin for button, using BCM numbering
-led_pin = 18       # GPIO pin for built-in LED, using BCM numbering
+# --- pins & timings ---
+shutdown_pin = 19
+led_pin = 18
+press_interval = 6
+hold_time = 10    # keep this in sync with your log message
 
-# Initialize GPIO
-GPIO.setmode(GPIO.BCM)  # Use BCM pin numbering
-GPIO.setwarnings(False)  # Disable runtime warnings to avoid unnecessary output
-GPIO.setup(shutdown_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Button to ground with a pull-up resistor
-GPIO.setup(led_pin, GPIO.OUT)  # LED as output
+# --- GPIO init ---
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setup(shutdown_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(led_pin, GPIO.OUT)
 
-# Variables to track button presses
-button_presses = 0
-last_press_time = 0
-press_interval = 6  # Time interval in seconds to count multiple presses (increased to 10 seconds)
-hold_time = 8  # Time in seconds to hold the button for shutdown
-
-def blink_led():
-    """Function to blink the LED rapidly to indicate shutdown."""
-    for _ in range(20):  # Increase the number of blinks
-        GPIO.output(led_pin, True)
-        time.sleep(0.1)  # Decrease sleep time to blink faster
-        GPIO.output(led_pin, False)
-        time.sleep(0.1)
-
-def button_callback(channel):
-    """Callback function to handle button events."""
-    global button_presses, last_press_time
-    current_time = time.time()
-    if GPIO.input(channel) == 0:  # Button pressed (falling edge)
-        if current_time - last_press_time > press_interval:
-            button_presses = 0  # Reset count if interval between presses exceeds press_interval
-        button_presses += 1
-        last_press_time = current_time
+...
 
         if button_presses >= 5:
             logging.info("Button pressed 5 times in a row. Entering Setup Mode.")
-            os.system("python3 /opt/wsprzero/wspr-zero/scripts/server_checkin.py")
-            # gbl button_presses = 0  # Reset count after sending data
+            os.system("systemctl start wspr-server-checkin.service")
 
-    elif GPIO.input(channel) == 1:  # Button released (rising edge)
+    elif GPIO.input(channel) == 1:
         if last_press_time and (current_time - last_press_time >= hold_time) and button_presses == 1:
-            logging.info("Button held for 10 seconds. Shutting down...")
-            blink_led()  # Blink LED to indicate shutdown
-            os.system("sudo shutdown now -h")
-        last_press_time = 0  # Reset the last press time on release
+            logging.info(f"Button held for {hold_time} seconds. Shutting down...")
+            blink_led()
+            os.system("systemctl poweroff -i")   # instead of 'sudo shutdown now -h'
 
-# Setup event detection for both rising and falling edges
-GPIO.add_event_detect(shutdown_pin, GPIO.BOTH, callback=button_callback, bouncetime=200)
-
-# Main loop just waits indefinitely
-try:
-    logging.info("Monitoring utility button. Hold for 10 seconds to shutdown or press 5 times to post data.")
-    while True:
-        time.sleep(86400)  # Sleep for a day; effectively idle
-except KeyboardInterrupt:
-    logging.info("Program terminated by user")
-finally:
-    GPIO.cleanup()  # Clean up GPIO on normal exit
