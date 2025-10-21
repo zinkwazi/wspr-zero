@@ -101,6 +101,7 @@ User=root
 UMask=0002
 Environment=PYTHONUNBUFFERED=1
 
+TimeoutStartSec=300 
 # If main service running (manual start), stop it first; ignore error if inactive
 ExecStartPre=-/bin/systemctl stop ${MAIN_SERVICE}
 
@@ -167,7 +168,8 @@ find "${WSPR_ROOT}/logs" -type f -exec chmod 0664 {} + || true
 systemctl daemon-reload
 
 if [[ $ENABLE_AFTER_INSTALL -eq 1 ]]; then
-  [[ $INSTALL_CHECKIN -eq 1 ]] && systemctl enable --now "${CHECKIN_UNIT}"
+  systemctl enable "${CHECKIN_UNIT}"
+  systemctl start --no-block "${CHECKIN_UNIT}"
   [[ $INSTALL_BUTTON  -eq 1 ]] && systemctl enable --now "${BUTTON_UNIT}"
 fi
 

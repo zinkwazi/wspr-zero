@@ -71,7 +71,8 @@ def send_data_to_server(data):
     try:
         headers = {'Content-Type': 'application/json'}
         log_message(f"Sending data to server: {json.dumps(data, indent=4)}")
-        response = requests.post(server_url, headers=headers, json=data)
+        # 5s connect, 15s read timeout
+        response = requests.post(server_url, headers=headers, json=data, timeout=(5, 15))
         if response.status_code == 200:
             return response.json()
         else:
@@ -109,17 +110,16 @@ def blink_led():
 def stop_wspr():
     log_message("Stopping WSPR process")
     cmd = ['/usr/bin/python3', '/opt/wsprzero/wspr-zero/scripts/wspr_control.py', 'stop']
-    if os.geteuid() != 0:
-        cmd = ['sudo', '-n'] + cmd
-    subprocess.Popen(cmd)
 
 # Function to start the WSPR process
 def start_wspr():
     log_message("Starting WSPR process")
     cmd = ['/usr/bin/python3', '/opt/wsprzero/wspr-zero/scripts/wspr_control.py', 'start']
-    if os.geteuid() != 0:
-        cmd = ['sudo', '-n'] + cmd
-    subprocess.Popen(cmd)
+
+# Require root so GPIO/LED always works
+if os.geteuid() != 0:
+    log_message("server_checkin.py must run as root for GPIO access; aborting.")
+    raise SystemExit("Run with sudo or via wspr-server-checkin.service (User=root).")
 
 # Main function
 def main():
@@ -127,8 +127,16 @@ def main():
     stop_wspr()
 
     # Initialize GPIO for LED
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(led_pin, GPIO.OUT)
+    try:
+        GPIO.setwarnings(False)
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(led_pin, GPIO.OUT, initial=GPIO.LOW)
+    except Exception as e:
+        log_message(f"GPIO init failed ({e}); continuing without LED.")
+        class _NoGPIO:
+            def output(self,*a,**k): pass
+            def cleanup(self): pass
+        GPIO = _NoGPIO()
 
     # Start LED blinking in a separate thread
     led_thread = threading.Thread(target=blink_led)
@@ -144,7 +152,7 @@ def main():
     if server_response:
         write_wspr_config(wspr_config, server_response)
 
-    # Wait 5 seconds and then repeatedly request the config file 12 times without sending full config again
+    # Wait 5 seconds and then repeatedly request the config file 10 times without sending full config again
     for _ in range(10):
         server_response = send_data_to_server({'MAC_address': wspr_config['MAC_address']})
         if server_response:
@@ -160,5 +168,9 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         pass
     finally:
-        GPIO.output(led_pin, GPIO.LOW)
-        GPIO.cleanup()
+        try:
+            GPIO.output(led_pin, GPIO.LOW)
+            GPIO.cleanup()
+        except Exception:
+            pass
+
