@@ -42,6 +42,8 @@ INSTALL_BUTTON=1
 ENABLE_AFTER_INSTALL=1
 UNINSTALL=0
 
+BOOTCFG_UNIT="wspr-boot-config.service"
+
 # ---------- args ----------
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -81,8 +83,30 @@ uninstall_all() {
   echo "Uninstalling aux units…"
   stop_disable_rm "$CHECKIN_UNIT"
   stop_disable_rm "$BUTTON_UNIT"
+  stop_disable_rm "$BOOTCFG_UNIT"
   systemctl daemon-reload
   echo "Done."
+}
+
+write_bootcfg_unit() {
+  cat > "/etc/systemd/system/${BOOTCFG_UNIT}" <<EOF
+[Unit]
+Description=WSPR-zero boot config updater (writes ${WSPR_ROOT}/wspr-config.json)
+After=local-fs.target
+Before=${CHECKIN_UNIT} ${MAIN_SERVICE}
+ConditionPathExists=${WSPR_ROOT}/scripts/wspr-boot-config.py
+
+[Service]
+Type=oneshot
+WorkingDirectory=${WSPR_ROOT}
+User=root
+UMask=0002
+ExecStart=/usr/bin/python3 ${WSPR_ROOT}/scripts/wspr-boot-config.py
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  chmod 0644 "/etc/systemd/system/${BOOTCFG_UNIT}"
 }
 
 write_checkin_unit() {
@@ -164,6 +188,9 @@ find "${WSPR_ROOT}/logs" -type f -exec chmod 0664 {} + || true
 # write units
 [[ $INSTALL_CHECKIN -eq 1 ]] && write_checkin_unit
 [[ $INSTALL_BUTTON  -eq 1 ]] && write_button_unit
+
+write_bootcfg_unit
+[[ $ENABLE_AFTER_INSTALL -eq 1 ]] && systemctl enable --now "${BOOTCFG_UNIT}"
 
 systemctl daemon-reload
 
