@@ -103,8 +103,10 @@ def blink_led():
             time.sleep(0.5)  # LED off for half a second
     except Exception as e:
         log_message(f"Exception occurred in blink_led: {str(e)}")
-        GPIO.output(led_pin, GPIO.LOW)
-        GPIO.cleanup()
+        try:
+            GPIO.output(led_pin, GPIO.LOW)
+        except Exception:
+            pass
 
 # Function to stop the WSPR process
 def stop_wspr():
