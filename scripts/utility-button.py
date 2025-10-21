@@ -1,16 +1,28 @@
+#!/usr/bin/env python3
 import RPi.GPIO as GPIO
-import os, time, logging, pwd, getpass
+import os, time, logging, pwd, subprocess
 
-# --- log setup (user-agnostic, matches server_checkin.py) ---
-log_dir = '/opt/wsprzero/wspr-zero/logs'
-log_file = os.path.join(log_dir, 'wspr-zero-shutdown.log')
+# ---------------- config ----------------
+WSPR_DEFAULT_USER = "wsprzero"
+LOG_DIR  = "/opt/wsprzero/wspr-zero/logs"
+LOG_FILE = os.path.join(LOG_DIR, "wspr-zero-shutdown.log")
 
-target_user = os.environ.get("WSPR_LOG_USER", getpass.getuser())
+BUTTON_PIN = 19
+LED_PIN    = 18
+PRESS_INTERVAL = 6    # seconds to allow multi-press counting
+HOLD_TIME      = 10    # seconds to trigger shutdown
+DELAY_START    = 5   # seconds to delay after boot
+
+CHECKIN_SERVICE = ["/bin/systemctl", "start", "wspr-server-checkin.service"]
+SHUTDOWN_CMD    = ["/bin/systemctl", "poweroff", "-i"]
+
+# ------------- identity/ownership -------------
+target_user = os.environ.get("WSPR_LOG_USER", WSPR_DEFAULT_USER)
 try:
     pw = pwd.getpwnam(target_user)
-    uid, gid = pw.pw_uid, pw.pw_gid
+    UID, GID = pw.pw_uid, pw.pw_gid
 except KeyError:
-    uid, gid = os.geteuid(), os.getegid()
+    UID, GID = os.geteuid(), os.getegid()
 
 def safe_chown(path, uid, gid):
     try: os.chown(path, uid, gid)
@@ -20,38 +32,71 @@ def safe_chmod(path, mode):
     try: os.chmod(path, mode)
     except PermissionError: pass
 
-os.makedirs(log_dir, exist_ok=True)
-safe_chown(log_dir, uid, gid)
-safe_chmod(log_dir, 0o2775)
+# ------------- startup -------------
+time.sleep(DELAY_START)
 
-if not os.path.exists(log_file):
-    open(log_file, 'a').close()
-safe_chown(log_file, uid, gid)
-safe_chmod(log_file, 0o664)
+os.makedirs(LOG_DIR, exist_ok=True)
+safe_chown(LOG_DIR, UID, GID)
+safe_chmod(LOG_DIR, 0o2775)  # setgid so group is inherited
 
-logging.basicConfig(filename=log_file, level=logging.INFO, format='%(asctime)s %(message)s')
+open(LOG_FILE, "a").close()
+safe_chown(LOG_FILE, UID, GID)
+safe_chmod(LOG_FILE, 0o664)
 
-# --- pins & timings ---
-shutdown_pin = 19
-led_pin = 18
-press_interval = 6
-hold_time = 10    # keep this in sync with your log message
+logging.basicConfig(filename=LOG_FILE, level=logging.INFO,
+                    format="%(asctime)s %(message)s")
 
-# --- GPIO init ---
+# ------------- GPIO -------------
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
-GPIO.setup(shutdown_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(led_pin, GPIO.OUT)
+GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(LED_PIN, GPIO.OUT, initial=GPIO.LOW)
 
-...
+button_presses = 0
+last_press_time = 0.0
+
+def blink_led(times=20, interval=0.1):
+    for _ in range(times):
+        GPIO.output(LED_PIN, True);  time.sleep(interval)
+        GPIO.output(LED_PIN, False); time.sleep(interval)
+
+def button_callback(channel):
+    global button_presses, last_press_time
+    now = time.time()
+    pressed = (GPIO.input(channel) == 0)  # active-low button
+
+    if pressed:
+        if now - last_press_time > PRESS_INTERVAL:
+            button_presses = 0
+        button_presses += 1
+        last_press_time = now
 
         if button_presses >= 5:
-            logging.info("Button pressed 5 times in a row. Entering Setup Mode.")
-            os.system("systemctl start wspr-server-checkin.service")
-
-    elif GPIO.input(channel) == 1:
-        if last_press_time and (current_time - last_press_time >= hold_time) and button_presses == 1:
-            logging.info(f"Button held for {hold_time} seconds. Shutting down...")
+            logging.info("Button pressed 5×: starting setup check-in service")
+            try:
+                subprocess.Popen(CHECKIN_SERVICE)  # non-blocking
+            except Exception as e:
+                logging.info(f"Failed to start check-in service: {e}")
+            button_presses = 0  # reset sequence
+    else:
+        # Released
+        if last_press_time and (now - last_press_time >= HOLD_TIME) and button_presses == 1:
+            logging.info(f"Button held for {HOLD_TIME} seconds. Shutting down…")
             blink_led()
-            os.system("systemctl poweroff -i")   # instead of 'sudo shutdown now -h'
+            try:
+                subprocess.Popen(SHUTDOWN_CMD)
+            except Exception as e:
+                logging.info(f"Shutdown command failed: {e}")
+        last_press_time = 0.0
+
+GPIO.add_event_detect(BUTTON_PIN, GPIO.BOTH, callback=button_callback, bouncetime=200)
+
+try:
+    logging.info(f"Utility button monitor started. Hold {HOLD_TIME}s to shutdown; press 5× for setup.")
+    while True:
+        time.sleep(86400)
+except KeyboardInterrupt:
+    logging.info("Program terminated by user")
+finally:
+    GPIO.cleanup()
 
