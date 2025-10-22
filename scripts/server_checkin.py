@@ -9,17 +9,16 @@ import subprocess
 import os
 import shutil
 
+# --- Root-only execution (ensures all file writes & GPIO are done as root) ---
+if os.geteuid() != 0:
+    print("server_checkin.py must run as root for GPIO and file ownership; aborting.")
+    raise SystemExit("Run with sudo (root).")
+
 # GPIO pin for WSPR-zero LED
 led_pin = 18
 
 # Define the URL of the remote server
 server_url = "https://wspr-zero.com/ez-config/server-listener.php"
-
-# --- Root-only execution (ensures all file writes & GPIO are done as root) ---
-if os.geteuid() != 0:
-    # Intentionally log to stdout here; file logging requires root-owned path
-    print("server_checkin.py must run as root for GPIO and file ownership; aborting.")
-    raise SystemExit("Run with sudo (root).")
 
 # Log directory and file (owned by root)
 log_dir = '/opt/wsprzero/wspr-zero/logs'
@@ -29,7 +28,6 @@ def safe_chown(path, uid, gid):
     try:
         os.chown(path, uid, gid)
     except PermissionError:
-        # Shouldn't happen when root, but keep it safe
         pass
     except FileNotFoundError:
         pass
@@ -45,7 +43,6 @@ def safe_chmod(path, mode):
 # Prepare log directory/file (root:root)
 os.makedirs(log_dir, exist_ok=True)
 safe_chown(log_dir, 0, 0)
-# setgid bit preserved from your original intent; harmless as root
 safe_chmod(log_dir, 0o2775)
 
 if not os.path.exists(log_file):
@@ -75,7 +72,7 @@ def send_data_to_server(data):
     try:
         headers = {'Content-Type': 'application/json'}
         log_message(f"Sending data to server: {json.dumps(data, indent=4)}")
-        # 3s connect, 7s read timeout (matches your current code)
+        # 3s connect, 7s read timeout
         response = requests.post(server_url, headers=headers, json=data, timeout=(3, 7))
         if response.status_code == 200:
             return response.json()
@@ -86,23 +83,26 @@ def send_data_to_server(data):
         log_message(f"Exception occurred while sending data: {str(e)}")
         return None
 
-# Function to blink the LED
+# ===== GPIO handling =====
+# Use a handle we can safely replace if init fails
+gpio = GPIO
+
 def blink_led():
     try:
         while True:
             for _ in range(5):  # Rapid blink 5 times a second
-                GPIO.output(led_pin, GPIO.HIGH)
+                gpio.output(led_pin, gpio.HIGH)
                 time.sleep(0.1)
-                GPIO.output(led_pin, GPIO.LOW)
+                gpio.output(led_pin, gpio.LOW)
                 time.sleep(0.1)
-            GPIO.output(led_pin, GPIO.HIGH)
+            gpio.output(led_pin, gpio.HIGH)
             time.sleep(0.5)  # LED on for half a second
-            GPIO.output(led_pin, GPIO.LOW)
+            gpio.output(led_pin, gpio.LOW)
             time.sleep(0.5)  # LED off for half a second
     except Exception as e:
         log_message(f"Exception occurred in blink_led: {str(e)}")
         try:
-            GPIO.output(led_pin, GPIO.LOW)
+            gpio.output(led_pin, gpio.LOW)
         except Exception:
             pass
 
@@ -139,6 +139,8 @@ def start_wspr():
 
 # Main function
 def main():
+    global gpio
+
     # Stop the WSPR process to release the transmit LED pin
     stop_wspr()
 
@@ -147,17 +149,18 @@ def main():
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(led_pin, GPIO.OUT, initial=GPIO.LOW)
+        gpio = GPIO  # ensure handle points to the real GPIO
     except Exception as e:
         log_message(f"GPIO init failed ({e}); continuing without LED.")
         class _NoGPIO:
+            HIGH = 1
+            LOW = 0
             def output(self,*a,**k): pass
             def cleanup(self): pass
-        global GPIO
-        GPIO = _NoGPIO()
+        gpio = _NoGPIO()
 
     # Start LED blinking in a separate thread
-    led_thread = threading.Thread(target=blink_led)
-    led_thread.daemon = True
+    led_thread = threading.Thread(target=blink_led, daemon=True)
     led_thread.start()
 
     wspr_config = read_wspr_config()
@@ -165,7 +168,6 @@ def main():
 
     # Send the full configuration to the server once
     server_response = send_data_to_server(wspr_config)
-
     if server_response:
         write_wspr_config(wspr_config, server_response)
 
@@ -186,7 +188,8 @@ if __name__ == "__main__":
         pass
     finally:
         try:
-            GPIO.output(led_pin, GPIO.LOW)
-            GPIO.cleanup()
+            gpio.output(led_pin, gpio.LOW)
+            gpio.cleanup()
         except Exception:
             pass
+
