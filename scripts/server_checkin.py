@@ -11,6 +11,8 @@ import shutil
 import re
 import hashlib
 
+ACTIVE_LOW = os.environ.get("WSPR_LED_ACTIVE_LOW", "0") in ("1", "true", "yes", "on")
+
 def get_uptime_str():
     try:
         with open('/proc/uptime','r') as f:
@@ -125,20 +127,23 @@ def send_data_to_server(data, label="POST"):
 gpio = GPIO
 
 def blink_led():
+    on  = gpio.LOW  if ACTIVE_LOW else gpio.HIGH
+    off = gpio.HIGH if ACTIVE_LOW else gpio.LOW
     try:
+        # quick probe so you can see a flash immediately
+        for _ in range(3):
+            gpio.output(led_pin, on);  time.sleep(0.15)
+            gpio.output(led_pin, off); time.sleep(0.15)
+        # regular pattern
         while True:
             for _ in range(5):  # rapid blink 5x/sec
-                gpio.output(led_pin, gpio.HIGH)
-                time.sleep(0.1)
-                gpio.output(led_pin, gpio.LOW)
-                time.sleep(0.1)
-            gpio.output(led_pin, gpio.HIGH)
-            time.sleep(0.5)
-            gpio.output(led_pin, gpio.LOW)
-            time.sleep(0.5)
+                gpio.output(led_pin, on);  time.sleep(0.1)
+                gpio.output(led_pin, off); time.sleep(0.1)
+            gpio.output(led_pin, on);  time.sleep(0.5)
+            gpio.output(led_pin, off); time.sleep(0.5)
     except Exception as e:
         log_message(f"Exception occurred in blink_led: {str(e)}")
-        try: gpio.output(led_pin, gpio.LOW)
+        try: gpio.output(led_pin, off)
         except Exception: pass
 
 # systemd control
