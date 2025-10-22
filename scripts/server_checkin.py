@@ -11,6 +11,22 @@ import shutil
 import re
 import hashlib
 
+def get_uptime_str():
+    try:
+        with open('/proc/uptime','r') as f:
+            seconds = int(float(f.readline().split()[0]))
+    except Exception:
+        return ""
+    mins, sec = divmod(seconds, 60)
+    hrs,  mins = divmod(mins, 60)
+    days, hrs  = divmod(hrs, 24)
+    parts = []
+    if days: parts.append(f"{days} day{'s' if days!=1 else ''}")
+    if hrs:  parts.append(f"{hrs} hour{'s' if hrs!=1 else ''}")
+    if mins: parts.append(f"{mins} minute{'s' if mins!=1 else ''}")
+    if not parts: parts.append(f"{sec} seconds")
+    return ", ".join(parts)
+
 # --- Root-only execution (ensures all file writes & GPIO are done as root) ---
 if os.geteuid() != 0:
     print("server_checkin.py must run as root for GPIO and file ownership; aborting.")
@@ -224,6 +240,15 @@ def main():
 
     wspr_config = read_wspr_config()
     ensure_canonical_mac_in_config(wspr_config)
+
+    # fresh, on-the-spot uptime for the web UI
+    wspr_config['uptime'] = get_uptime_str()
+
+    # timezone-aware for the setup window
+    wspr_config['setup_timestamp'] = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+    status_payload = build_status_payload(wspr_config)
+    server_response = send_data_to_server(status_payload, label="FIRST POST (status-only)")
 
     # timezone-aware UTC
     wspr_config['setup_timestamp'] = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
