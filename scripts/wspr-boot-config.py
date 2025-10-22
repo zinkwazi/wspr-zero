@@ -22,7 +22,7 @@ DEFAULT_CONFIG = {
         "30m",
         "30m"
     ],
-    "transmit_or_receive_option": "",
+    "transmit_or_receive_option": "transmit",
     "maidenhead_grid": "",
     "setup_timestamp": ""
 }
