@@ -27,17 +27,13 @@ log_file = os.path.join(log_dir, 'setup-post.log')
 def safe_chown(path, uid, gid):
     try:
         os.chown(path, uid, gid)
-    except PermissionError:
-        pass
-    except FileNotFoundError:
+    except (PermissionError, FileNotFoundError):
         pass
 
 def safe_chmod(path, mode):
     try:
         os.chmod(path, mode)
-    except PermissionError:
-        pass
-    except FileNotFoundError:
+    except (PermissionError, FileNotFoundError):
         pass
 
 # Prepare log directory/file (root:root)
@@ -55,19 +51,27 @@ def log_message(message):
         file.write(message + '\n')
         file.write('-' * 50 + '\n')
 
-# Function to read wspr-config.json
+# Robust read of wspr-config.json
 def read_wspr_config():
-    with open('/opt/wsprzero/wspr-zero/wspr-config.json', 'r') as file:
-        data = json.load(file)
-    return data
+    path = '/opt/wsprzero/wspr-zero/wspr-config.json'
+    try:
+        with open(path, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        log_message(f"Failed to read {path}: {e}")
+        return {}
 
-# Function to write wspr-config.json
+# Write wspr-config.json by merging new_data into existing_data
 def write_wspr_config(existing_data, new_data):
     existing_data.update(new_data)
-    with open('/opt/wsprzero/wspr-zero/wspr-config.json', 'w') as file:
-        json.dump(existing_data, file, indent=4)
+    path = '/opt/wsprzero/wspr-zero/wspr-config.json'
+    try:
+        with open(path, 'w') as f:
+            json.dump(existing_data, f, indent=4)
+    except Exception as e:
+        log_message(f"Failed to write {path}: {e}")
 
-# Function to send data to the server
+# Send data to the server
 def send_data_to_server(data):
     try:
         headers = {'Content-Type': 'application/json'}
@@ -137,12 +141,35 @@ def start_wspr():
     log_message("Starting WSPR process via systemd")
     _systemctl('start')
 
+# Build a status-only payload to avoid overwriting web-configured settings with blanks
+def build_status_payload(full_cfg):
+    """
+    Return only identity/runtime fields that should be updated from the device.
+    Avoid sending configurable settings (call_sign, bands, grid, etc.).
+    """
+    keys = [
+        "MAC_address",
+        "hostname",
+        "local_IP_address",
+        "public_IP_address",   # server will also set this, but harmless to include
+        "model_number",
+        "serial_number",
+        "uptime",
+        "last_checkin",        # server overwrites with gmdate; harmless
+        "setup_timestamp",
+    ]
+    out = {k: v for k, v in full_cfg.items() if k in keys}
+    # Ensure MAC is present
+    out["MAC_address"] = full_cfg.get("MAC_address", "")
+    return out
+
 # Main function
 def main():
     global gpio
 
     # Stop the WSPR process to release the transmit LED pin
     stop_wspr()
+    time.sleep(1)  # give systemd a moment to release GPIO
 
     # Initialize GPIO for LED
     try:
@@ -166,14 +193,15 @@ def main():
     wspr_config = read_wspr_config()
     wspr_config['setup_timestamp'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
 
-    # Send the full configuration to the server once
-    server_response = send_data_to_server(wspr_config)
+    # Send status-only payload once (prevents overwriting web settings with blanks)
+    status_payload = build_status_payload(wspr_config)
+    server_response = send_data_to_server(status_payload)
     if server_response:
         write_wspr_config(wspr_config, server_response)
 
     # Repeat 5 times requesting updates by MAC only (3s between attempts)
     for _ in range(5):
-        server_response = send_data_to_server({'MAC_address': wspr_config['MAC_address']})
+        server_response = send_data_to_server({'MAC_address': wspr_config.get('MAC_address', '')})
         if server_response:
             write_wspr_config(wspr_config, server_response)
         time.sleep(3)
@@ -192,4 +220,3 @@ if __name__ == "__main__":
             gpio.cleanup()
         except Exception:
             pass
-
