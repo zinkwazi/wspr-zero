@@ -202,7 +202,7 @@ def main():
 
     # Stop service to free LED pin and pause a bit
     stop_wspr()
-    time.sleep(2.0)
+    time.sleep(3)
 
     # Init GPIO + verify function
     try:
