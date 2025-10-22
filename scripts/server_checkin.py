@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import RPi.GPIO as GPIO
 import requests
 import json
@@ -5,9 +6,8 @@ import time
 from datetime import datetime
 import threading
 import subprocess
-import pwd
 import os
-import getpass
+import shutil
 
 # GPIO pin for WSPR-zero LED
 led_pin = 18
@@ -15,21 +15,23 @@ led_pin = 18
 # Define the URL of the remote server
 server_url = "https://wspr-zero.com/ez-config/server-listener.php"
 
-# Resolve the target user for log ownership:
-# - Prefer current effective user
-# - You can override with env WSPR_LOG_USER if you ever need to
-target_user = os.environ.get("WSPR_LOG_USER", getpass.getuser())
-try:
-    pw = pwd.getpwnam(target_user)
-    uid, gid = pw.pw_uid, pw.pw_gid
-except KeyError:
-    uid, gid = os.geteuid(), os.getegid()   # fallback
+# --- Root-only execution (ensures all file writes & GPIO are done as root) ---
+if os.geteuid() != 0:
+    # Intentionally log to stdout here; file logging requires root-owned path
+    print("server_checkin.py must run as root for GPIO and file ownership; aborting.")
+    raise SystemExit("Run with sudo (root).")
+
+# Log directory and file (owned by root)
+log_dir = '/opt/wsprzero/wspr-zero/logs'
+log_file = os.path.join(log_dir, 'setup-post.log')
 
 def safe_chown(path, uid, gid):
     try:
         os.chown(path, uid, gid)
     except PermissionError:
-        # Non-root users can't chown; that's fine — just continue
+        # Shouldn't happen when root, but keep it safe
+        pass
+    except FileNotFoundError:
         pass
 
 def safe_chmod(path, mode):
@@ -37,22 +39,24 @@ def safe_chmod(path, mode):
         os.chmod(path, mode)
     except PermissionError:
         pass
+    except FileNotFoundError:
+        pass
 
-# Set up log directory and log file
-log_dir = '/opt/wsprzero/wspr-zero/logs'
-log_file = os.path.join(log_dir, 'setup-post.log')
-
-# Create log directory if it doesn't exist
+# Prepare log directory/file (root:root)
 os.makedirs(log_dir, exist_ok=True)
-safe_chown(log_dir, uid, gid)
-# setgid bit so files inherit the directory's group when created by root later
+safe_chown(log_dir, 0, 0)
+# setgid bit preserved from your original intent; harmless as root
 safe_chmod(log_dir, 0o2775)
 
-# Create log file if it doesn't exist
 if not os.path.exists(log_file):
     open(log_file, 'a').close()
-safe_chown(log_file, uid, gid)
+safe_chown(log_file, 0, 0)
 safe_chmod(log_file, 0o664)
+
+def log_message(message):
+    with open(log_file, 'a') as file:
+        file.write(message + '\n')
+        file.write('-' * 50 + '\n')
 
 # Function to read wspr-config.json
 def read_wspr_config():
@@ -71,7 +75,7 @@ def send_data_to_server(data):
     try:
         headers = {'Content-Type': 'application/json'}
         log_message(f"Sending data to server: {json.dumps(data, indent=4)}")
-        # 5s connect, 15s read timeout
+        # 3s connect, 7s read timeout (matches your current code)
         response = requests.post(server_url, headers=headers, json=data, timeout=(3, 7))
         if response.status_code == 200:
             return response.json()
@@ -81,12 +85,6 @@ def send_data_to_server(data):
     except Exception as e:
         log_message(f"Exception occurred while sending data: {str(e)}")
         return None
-
-# Function to log messages to a file
-def log_message(message):
-    with open(log_file, 'a') as file:
-        file.write(message + '\n')
-        file.write('-' * 50 + '\n')
 
 # Function to blink the LED
 def blink_led():
@@ -108,20 +106,36 @@ def blink_led():
         except Exception:
             pass
 
-# Function to stop the WSPR process
+# --- Systemd service control (no legacy fallback) ---
+SERVICE_NAME = os.environ.get("WSPR_SERVICE", "wspr-service")
+SYSTEMCTL = shutil.which("systemctl") or "systemctl"
+
+def _systemctl(action, timeout=15):
+    """
+    Run systemctl <action> <SERVICE_NAME>, log stdout/stderr, and return True/False.
+    """
+    cmd = [SYSTEMCTL, '--no-pager', action, SERVICE_NAME]
+    try:
+        p = subprocess.run(cmd, check=True, text=True, capture_output=True, timeout=timeout)
+        log_message(f"systemctl {action} {SERVICE_NAME} OK\nstdout:\n{p.stdout}\nstderr:\n{p.stderr}")
+        return True
+    except FileNotFoundError as e:
+        log_message(f"systemctl not found: {e}")
+        return False
+    except subprocess.CalledProcessError as e:
+        log_message(f"systemctl {action} {SERVICE_NAME} failed (exit {e.returncode})\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}")
+        return False
+    except subprocess.TimeoutExpired:
+        log_message(f"systemctl {action} {SERVICE_NAME} timed out after {timeout}s")
+        return False
+
 def stop_wspr():
-    log_message("Stopping WSPR process")
-    cmd = ['/usr/bin/python3', '/opt/wsprzero/wspr-zero/scripts/wspr_control.py', 'stop']
+    log_message("Stopping WSPR process via systemd")
+    _systemctl('stop')
 
-# Function to start the WSPR process
 def start_wspr():
-    log_message("Starting WSPR process")
-    cmd = ['/usr/bin/python3', '/opt/wsprzero/wspr-zero/scripts/wspr_control.py', 'start']
-
-# Require root so GPIO/LED always works
-if os.geteuid() != 0:
-    log_message("server_checkin.py must run as root for GPIO access; aborting.")
-    raise SystemExit("Run with sudo or via wspr-server-checkin.service (User=root).")
+    log_message("Starting WSPR process via systemd")
+    _systemctl('start')
 
 # Main function
 def main():
@@ -138,6 +152,7 @@ def main():
         class _NoGPIO:
             def output(self,*a,**k): pass
             def cleanup(self): pass
+        global GPIO
         GPIO = _NoGPIO()
 
     # Start LED blinking in a separate thread
@@ -154,7 +169,7 @@ def main():
     if server_response:
         write_wspr_config(wspr_config, server_response)
 
-    # Wait 5 seconds and then repeatedly request the config file 10 times without sending full config again
+    # Repeat 5 times requesting updates by MAC only (3s between attempts)
     for _ in range(5):
         server_response = send_data_to_server({'MAC_address': wspr_config['MAC_address']})
         if server_response:
@@ -175,4 +190,3 @@ if __name__ == "__main__":
             GPIO.cleanup()
         except Exception:
             pass
-
