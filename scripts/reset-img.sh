@@ -58,6 +58,16 @@ fi
 # Remove the WSPR-zero clock calibration file
 sudo rm -f /var/lib/wspr-zero/f_pwm_clk
 
+# Remove the 'pi' user's SSH keys/config
+if id -u pi >/dev/null 2>&1; then
+  PI_HOME="$(getent passwd pi | cut -d: -f6)"
+  if [[ -n "$PI_HOME" && -d "$PI_HOME/.ssh" ]]; then
+    # ensure we can delete even if perms are restrictive
+    chmod -R u+rwX "$PI_HOME/.ssh" || true
+    rm -rf -- "$PI_HOME/.ssh"
+  fi
+fi
+
 # Clear user histories and caches
 for dir in /home/*; do
   [[ -d "$dir" ]] || continue
