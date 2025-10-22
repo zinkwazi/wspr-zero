@@ -3,11 +3,12 @@ import RPi.GPIO as GPIO
 import requests
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 import threading
 import subprocess
 import os
 import shutil
+import re
 
 # --- Root-only execution (ensures all file writes & GPIO are done as root) ---
 if os.geteuid() != 0:
@@ -71,24 +72,46 @@ def write_wspr_config(existing_data, new_data):
     except Exception as e:
         log_message(f"Failed to write {path}: {e}")
 
-# Send data to the server
-def send_data_to_server(data):
+# ---- MAC normalization ----
+_mac_pat = re.compile(r'[^0-9A-Fa-f]')
+def canonical_mac(mac):
+    """Return lowercase colon-separated MAC, e.g. 'e4:5f:01:50:de:76'."""
+    if not mac:
+        return ""
+    # strip non-hex, then reinsert colons every 2 chars
+    hexonly = _mac_pat.sub('', mac)
+    hexonly = hexonly.lower()
+    if len(hexonly) == 12:
+        return ':'.join(hexonly[i:i+2] for i in range(0, 12, 2))
+    return mac.strip().lower()
+
+def ensure_canonical_mac_in_config(cfg):
+    mac = canonical_mac(cfg.get('MAC_address', ''))
+    if mac:
+        cfg['MAC_address'] = mac
+
+# Send data to the server (with response logging)
+def send_data_to_server(data, label="POST"):
     try:
         headers = {'Content-Type': 'application/json'}
-        log_message(f"Sending data to server: {json.dumps(data, indent=4)}")
-        # 3s connect, 7s read timeout
+        log_message(f"{label} -> server payload:\n{json.dumps(data, indent=4)}")
         response = requests.post(server_url, headers=headers, json=data, timeout=(3, 7))
         if response.status_code == 200:
-            return response.json()
+            try:
+                j = response.json()
+                log_message(f"{label} <- server response:\n{json.dumps(j, indent=4)}")
+                return j
+            except Exception as je:
+                log_message(f"{label} response JSON decode failed: {je}\nRaw: {response.text[:4000]}")
+                return None
         else:
-            log_message(f"Failed to send data. Status code: {response.status_code}, Response: {response.text}")
+            log_message(f"{label} failed. HTTP {response.status_code}\nBody: {response.text[:4000]}")
             return None
     except Exception as e:
-        log_message(f"Exception occurred while sending data: {str(e)}")
+        log_message(f"{label} exception: {str(e)}")
         return None
 
 # ===== GPIO handling =====
-# Use a handle we can safely replace if init fails
 gpio = GPIO
 
 def blink_led():
@@ -115,9 +138,6 @@ SERVICE_NAME = os.environ.get("WSPR_SERVICE", "wspr-service")
 SYSTEMCTL = shutil.which("systemctl") or "systemctl"
 
 def _systemctl(action, timeout=15):
-    """
-    Run systemctl <action> <SERVICE_NAME>, log stdout/stderr, and return True/False.
-    """
     cmd = [SYSTEMCTL, '--no-pager', action, SERVICE_NAME]
     try:
         p = subprocess.run(cmd, check=True, text=True, capture_output=True, timeout=timeout)
@@ -151,16 +171,15 @@ def build_status_payload(full_cfg):
         "MAC_address",
         "hostname",
         "local_IP_address",
-        "public_IP_address",   # server will also set this, but harmless to include
+        "public_IP_address",
         "model_number",
         "serial_number",
         "uptime",
-        "last_checkin",        # server overwrites with gmdate; harmless
+        "last_checkin",
         "setup_timestamp",
     ]
     out = {k: v for k, v in full_cfg.items() if k in keys}
-    # Ensure MAC is present
-    out["MAC_address"] = full_cfg.get("MAC_address", "")
+    out["MAC_address"] = canonical_mac(full_cfg.get("MAC_address", ""))
     return out
 
 # Main function
@@ -191,17 +210,21 @@ def main():
     led_thread.start()
 
     wspr_config = read_wspr_config()
-    wspr_config['setup_timestamp'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    ensure_canonical_mac_in_config(wspr_config)
+
+    # timezone-aware UTC
+    wspr_config['setup_timestamp'] = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
     # Send status-only payload once (prevents overwriting web settings with blanks)
     status_payload = build_status_payload(wspr_config)
-    server_response = send_data_to_server(status_payload)
+    server_response = send_data_to_server(status_payload, label="FIRST POST (status-only)")
     if server_response:
         write_wspr_config(wspr_config, server_response)
 
     # Repeat 5 times requesting updates by MAC only (3s between attempts)
-    for _ in range(5):
-        server_response = send_data_to_server({'MAC_address': wspr_config.get('MAC_address', '')})
+    mac_only = {'MAC_address': wspr_config.get('MAC_address', '')}
+    for i in range(1, 6):
+        server_response = send_data_to_server(mac_only, label=f"POLL {i}/5 (MAC-only)")
         if server_response:
             write_wspr_config(wspr_config, server_response)
         time.sleep(3)
@@ -220,3 +243,4 @@ if __name__ == "__main__":
             gpio.cleanup()
         except Exception:
             pass
+
