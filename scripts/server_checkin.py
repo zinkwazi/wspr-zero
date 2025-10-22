@@ -9,6 +9,7 @@ import subprocess
 import os
 import shutil
 import re
+import hashlib
 
 # --- Root-only execution (ensures all file writes & GPIO are done as root) ---
 if os.geteuid() != 0:
@@ -24,6 +25,13 @@ server_url = "https://wspr-zero.com/ez-config/server-listener.php"
 # Log directory and file (owned by root)
 log_dir = '/opt/wsprzero/wspr-zero/logs'
 log_file = os.path.join(log_dir, 'setup-post.log')
+
+# Tunables (env overrides)
+CHECKIN_WINDOW = int(os.environ.get("WSPR_CHECKIN_WINDOW", "60"))    # total seconds to poll
+POLL_INTERVAL  = float(os.environ.get("WSPR_POLL_INTERVAL", "3"))    # seconds between polls
+# sanity
+if CHECKIN_WINDOW < POLL_INTERVAL + 3:
+    CHECKIN_WINDOW = int(POLL_INTERVAL + 3)
 
 def safe_chown(path, uid, gid):
     try:
@@ -78,9 +86,7 @@ def canonical_mac(mac):
     """Return lowercase colon-separated MAC, e.g. 'e4:5f:01:50:de:76'."""
     if not mac:
         return ""
-    # strip non-hex, then reinsert colons every 2 chars
-    hexonly = _mac_pat.sub('', mac)
-    hexonly = hexonly.lower()
+    hexonly = _mac_pat.sub('', mac).lower()
     if len(hexonly) == 12:
         return ':'.join(hexonly[i:i+2] for i in range(0, 12, 2))
     return mac.strip().lower()
@@ -182,6 +188,13 @@ def build_status_payload(full_cfg):
     out["MAC_address"] = canonical_mac(full_cfg.get("MAC_address", ""))
     return out
 
+def _hash_obj(o):
+    try:
+        s = json.dumps(o, sort_keys=True, separators=(',', ':')).encode()
+        return hashlib.sha256(s).hexdigest()
+    except Exception:
+        return None
+
 # Main function
 def main():
     global gpio
@@ -221,13 +234,29 @@ def main():
     if server_response:
         write_wspr_config(wspr_config, server_response)
 
-    # Repeat 5 times requesting updates by MAC only (3s between attempts)
+    # Poll until the deadline; write whenever the server response changes
     mac_only = {'MAC_address': wspr_config.get('MAC_address', '')}
-    for i in range(1, 6):
-        server_response = send_data_to_server(mac_only, label=f"POLL {i}/5 (MAC-only)")
+    deadline = time.monotonic() + CHECKIN_WINDOW
+    prev_hash = None
+    i = 1
+    while time.monotonic() < deadline:
+        server_response = send_data_to_server(mac_only, label=f"POLL {i} (MAC-only)")
         if server_response:
-            write_wspr_config(wspr_config, server_response)
-        time.sleep(3)
+            h = _hash_obj(server_response)
+            if h and h != prev_hash:
+                write_wspr_config(wspr_config, server_response)
+                prev_hash = h
+        # sleep but don't overshoot too much if near deadline
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        time.sleep(min(POLL_INTERVAL, max(0.05, remaining)))
+        i += 1
+
+    # One final fetch just before restarting WSPR
+    server_response = send_data_to_server(mac_only, label="FINAL FETCH")
+    if server_response:
+        write_wspr_config(wspr_config, server_response)
 
     # Start the WSPR process to reload any config file changes
     start_wspr()
@@ -243,4 +272,10 @@ if __name__ == "__main__":
             gpio.cleanup()
         except Exception:
             pass
+
+# Handy systemctl reminders
+#   sudo systemctl status  wspr-service
+#   sudo systemctl start   wspr-service
+#   sudo systemctl stop    wspr-service
+#   sudo systemctl restart wspr-service
 
