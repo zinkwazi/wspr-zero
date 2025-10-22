@@ -50,13 +50,10 @@ fi
 rm -rf /tmp/* /var/tmp/* || true
 
 # Reset WSPR-zero (if present)
-if [[ -d /home/wsprzero/wspr-zero ]]; then
-  rm -f /home/wsprzero/wspr-zero/logs/* || true
-  rm -f /home/wsprzero/wspr-zero/wspr-config.json || true
+if [[ -d /opt/wsprzero/wspr-zero ]]; then
+  rm -f /opt/wsprzero/wspr-zero/logs/* || true
+  rm -f /opt/wsprzero/wspr-zero/wspr-config.json || true
 fi
-
-# Remove dev playground (if present)
-rm -rf /home/wsprzero/dev || true
 
 # Remove the WSPR-zero clock calibration file
 sudo rm -f /var/lib/wspr-zero/f_pwm_clk
