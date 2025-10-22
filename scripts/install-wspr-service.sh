@@ -194,6 +194,34 @@ EOF
 need_root
 need_systemd
 
+# -------- build & install WsprryPi-zero --------
+WSPRRYP_DIR="/opt/wsprzero/WsprryPi-zero"
+
+build_wsprry() {
+  if [[ ! -d "$WSPRRYP_DIR" ]]; then
+    echo "WsprryPi-zero source not found at $WSPRRYP_DIR — skipping build."
+    return 0
+  fi
+
+  echo "Building WsprryPi-zero in $WSPRRYP_DIR ..."
+  pushd "$WSPRRYP_DIR" >/dev/null
+
+  # Clean old artifacts (ignore errors if nothing to clean)
+  make clean || true
+
+  # Build using available cores
+  make -j"$(nproc)"
+
+  # Install the binary somewhere on PATH
+  install -m 0755 wspr /usr/local/bin/wspr
+
+  popd >/dev/null
+  echo "WsprryPi-zero build complete. Installed /usr/local/bin/wspr"
+}
+
+# call the builder before installing/enabling units
+build_wsprry
+
 if [[ $UNINSTALL -eq 1 ]]; then
   uninstall_all
   exit 0
