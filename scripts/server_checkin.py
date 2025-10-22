@@ -34,8 +34,8 @@ if os.geteuid() != 0:
     print("server_checkin.py must run as root for GPIO and file ownership; aborting.")
     raise SystemExit("Run with sudo (root).")
 
-# GPIO pin for WSPR-zero LED
-led_pin = 18
+# GPIO pin for WSPR-zero LED (BCM numbering)
+led_pin = 18  # physical pin 12
 
 # Server endpoint
 server_url = "https://wspr-zero.com/ez-config/server-listener.php"
@@ -126,15 +126,20 @@ def send_data_to_server(data, label="POST"):
 # ===== GPIO handling =====
 gpio = GPIO
 
+def _raspi_gpio_state(pin=18):
+    """Log raspi-gpio state for the pin (if command exists)."""
+    exe = shutil.which("raspi-gpio")
+    if not exe: return
+    try:
+        out = subprocess.run([exe, "get", str(pin)], text=True, capture_output=True, timeout=2)
+        log_message(f"raspi-gpio get {pin}:\n{out.stdout.strip() or out.stderr.strip()}")
+    except Exception as e:
+        log_message(f"raspi-gpio probe failed: {e}")
+
 def blink_led():
     on  = gpio.LOW  if ACTIVE_LOW else gpio.HIGH
     off = gpio.HIGH if ACTIVE_LOW else gpio.LOW
     try:
-        # quick probe so you can see a flash immediately
-        for _ in range(3):
-            gpio.output(led_pin, on);  time.sleep(0.15)
-            gpio.output(led_pin, off); time.sleep(0.15)
-        # regular pattern
         while True:
             for _ in range(5):  # rapid blink 5x/sec
                 gpio.output(led_pin, on);  time.sleep(0.1)
@@ -207,12 +212,13 @@ def main():
 
         try:
             fn = GPIO.gpio_function(led_pin)  # 1 means OUTPUT in RPi.GPIO
+            log_message(f"GPIO{led_pin} gpio_function={fn} (1 means OUTPUT)")
             if fn != GPIO.OUT:
                 log_message(
-                    f"GPIO{led_pin} not set to OUTPUT (func={fn}). "
+                    f"GPIO{led_pin} not set to OUTPUT. "
                     "If using GPIO18, ensure 'dtparam=audio=off' in /boot/config.txt, then reboot."
                 )
-        except Exception:
+        except Exception as _:
             pass
 
         gpio = GPIO
@@ -224,6 +230,25 @@ def main():
             def output(self,*a,**k): pass
             def cleanup(self): pass
         gpio = _NoGPIO()
+
+    # Log current pin state from kernel view (if raspi-gpio exists)
+    _raspi_gpio_state(led_pin)
+
+    # Preflight visible pulses (both polarities so you see *something* either way)
+    try:
+        on  = gpio.LOW  if ACTIVE_LOW else gpio.HIGH
+        off = gpio.HIGH if ACTIVE_LOW else gpio.LOW
+        # 3 pulses in the configured polarity
+        for _ in range(3):
+            gpio.output(led_pin, on);  time.sleep(0.2)
+            gpio.output(led_pin, off); time.sleep(0.2)
+        # 2 pulses in the opposite polarity (helps detect active-low wiring)
+        gpio.output(led_pin, off); time.sleep(0.15)
+        gpio.output(led_pin, on);  time.sleep(0.15)
+        gpio.output(led_pin, off); time.sleep(0.15)
+        log_message("LED preflight pulses sent.")
+    except Exception as e:
+        log_message(f"Preflight pulse error: {e}")
 
     # Start LED thread
     led_thread = threading.Thread(target=blink_led, daemon=True)
@@ -273,7 +298,7 @@ if __name__ == "__main__":
         pass
     finally:
         try:
-            gpio.output(led_pin, gpio.LOW)
+            gpio.output(led_pin, GPIO.LOW if not ACTIVE_LOW else GPIO.HIGH)
             gpio.cleanup()
         except Exception:
             pass
