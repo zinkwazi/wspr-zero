@@ -102,7 +102,7 @@ truncate -s 0 /etc/machine-id
 rm -f /var/lib/dbus/machine-id || true
 
 # --- (L) Reset system SSH host keys (regenerated on first boot)
-rm -f /etc/ssh/ssh_host_* || true
+#rm -f /etc/ssh/ssh_host_* || true
 
 # --- (M) Headless-enable flag: allow SSH even if user forgets to tick it in Imager
 if [[ -d /boot/firmware ]]; then
