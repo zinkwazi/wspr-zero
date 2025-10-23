@@ -100,9 +100,20 @@ rm -f /var/lib/dbus/machine-id || true
 # Reset system SSH host keys
 rm -f /etc/ssh/ssh_host_* || true
 
+# Headless-enable SSH on next boot (create empty 'ssh' file on boot partition)
+if [[ -d /boot/firmware ]]; then
+  : > /boot/firmware/ssh
+  chmod 0644 /boot/firmware/ssh || true
+elif [[ -d /boot ]]; then
+  : > /boot/ssh
+  chmod 0644 /boot/ssh || true
+else
+  echo "WARNING: Neither /boot/firmware nor /boot exists; cannot create SSH enable file." >&2
+fi
+
 # Final sync and poweroff
-echo "Cleanup complete. Powering off in 10 seconds..."
-sleep 10
+echo "Cleanup complete. Powering off in 3 seconds..."
+sleep 3
 sync || true
 if command -v systemctl >/dev/null 2>&1; then
   systemctl poweroff -i
