@@ -194,6 +194,46 @@ EOF
 need_root
 need_systemd
 
+# -------- SSH host keys (recreate if missing) --------
+ensure_ssh_host_keys() {
+  # If any private host key exists, assume SSH is already provisioned
+  if ls /etc/ssh/ssh_host_*_key >/dev/null 2>&1; then
+    echo "SSH host keys already present."
+  else
+    echo "Recreating SSH host keys..."
+    if ! command -v ssh-keygen >/dev/null 2>&1; then
+      echo "Warning: ssh-keygen not found. Install openssh-server before running this installer." >&2
+      return 0
+    fi
+    ssh-keygen -A
+  fi
+
+  # Normalize permissions (safe if keys already existed)
+  chown -R root:root /etc/ssh || true
+  chmod 600 /etc/ssh/ssh_host_*_key 2>/dev/null || true
+  chmod 644 /etc/ssh/ssh_host_*_key.pub 2>/dev/null || true
+
+  # Make sure SSH will start on boot and is running now
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl enable ssh >/dev/null 2>&1 || true
+    systemctl restart ssh >/dev/null 2>&1 || true
+    systemctl --no-pager --quiet is-active ssh || {
+      echo "Warning: ssh.service is not active; check 'journalctl -u ssh'." >&2
+    }
+  else
+    echo "Note: systemd not available; skipping ssh.service enable/restart." >&2
+  fi
+
+  # Optional: headless-enable flag on boot partition(s)
+  if [[ -d /boot/firmware ]]; then : > /boot/firmware/ssh; fi
+  if [[ -d /boot ]]; then : > /boot/ssh; fi
+}
+
+# call it early so remote access is available even if the rest fails later
+ensure_ssh_host_keys
+
+
+
 # -------- build & install WsprryPi-zero --------
 WSPRRYP_DIR="/opt/wsprzero/WsprryPi-zero"
 

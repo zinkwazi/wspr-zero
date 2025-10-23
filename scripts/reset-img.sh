@@ -100,15 +100,15 @@ rm -f /var/lib/dbus/machine-id || true
 # Reset system SSH host keys
 rm -f /etc/ssh/ssh_host_* || true
 
-# Headless-enable SSH on next boot (create empty 'ssh' file on boot partition)
+# Headless-enable SSH on next boot (create empty 'ssh' flag on whichever boot path exists)
 if [[ -d /boot/firmware ]]; then
   : > /boot/firmware/ssh
-  chmod 0644 /boot/firmware/ssh || true
-elif [[ -d /boot ]]; then
+  chmod 0644 /boot/firmware/ssh || true   # note: VFAT ignores Unix perms; harmless
+fi
+
+if [[ -d /boot ]]; then
   : > /boot/ssh
-  chmod 0644 /boot/ssh || true
-else
-  echo "WARNING: Neither /boot/firmware nor /boot exists; cannot create SSH enable file." >&2
+  chmod 0644 /boot/ssh || true            # same note as above
 fi
 
 # Final sync and poweroff
