@@ -88,12 +88,10 @@ rm -f /var/lib/dhcpcd5/*.lease || true
 rm -f /etc/udev/rules.d/70-persistent-net.rules || true
 rm -f /lib/udev/rules.d/75-persistent-net-generator.rules || true
 
-# --- (J) Wi-Fi: provide minimal wpa_supplicant so Imager can supply networks
-install -m 600 -o root -g root /dev/null /etc/wpa_supplicant/wpa_supplicant.conf
-cat > /etc/wpa_supplicant/wpa_supplicant.conf <<'EOF'
-ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
-update_config=1
-EOF
+# --- (J) Wi-Fi: Let Raspberry Pi Imager supply Wi-Fi at first boot
+rm -f /etc/wpa_supplicant/wpa_supplicant.conf
+rm -f /etc/NetworkManager/system-connections/*.nmconnection 2>/dev/null || true
+
 # NOTE: Do NOT add any network={...} here; Raspberry Pi Imager will place a full
 # wpa_supplicant.conf on the boot partition that first-boot will import/use.
 
