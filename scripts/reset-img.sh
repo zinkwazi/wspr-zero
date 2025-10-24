@@ -125,6 +125,16 @@ done
 rm -f /root/.bash_history || true
 rm -rf /root/.cache/* || true
 
+# Extra user history/artifacts
+for dir in /home/*; do
+  [[ -d "$dir" ]] || continue
+  rm -f "$dir"/.zsh_history "$dir"/.viminfo "$dir"/.lesshst "$dir"/.python_history 2>/dev/null || true
+done
+rm -f /root/.zsh_history /root/.viminfo /root/.lesshst /root/.python_history 2>/dev/null || true
+
+# Unique entropy on first boot
+rm -f /var/lib/systemd/random-seed || true
+
 # --- (H) Remove DHCP leases (isc-dhcp & dhcpcd)
 rm -f /var/lib/dhcp/* || true
 rm -f /var/lib/dhcpcd5/*.lease || true
