@@ -25,6 +25,49 @@ esac
 # Make globs safer for rm when nothing matches
 shopt -s nullglob
 
+# --- Stop WSPR-zero services (from installers) before proceeding
+if command -v systemctl >/dev/null 2>&1; then
+  # Units from install-wspr-service.sh and install-wspr-aux.sh
+  SERVICES=(
+    wspr-service.service
+    wspr-service-reload.service
+    wspr-service.path
+    wspr-server-checkin.service
+    wspr-utility-button.service
+    wspr-boot-config.service
+    # legacy names to be safe
+    wspr.service
+    wspr.path
+    wspr-reload.service
+  )
+
+  # Stop, disable, and (optionally) mask to prevent any restarts during reset
+  for svc in "${SERVICES[@]}"; do
+    if systemctl list-unit-files | grep -qE "^${svc}\b"; then
+      systemctl stop "$svc" >/dev/null 2>&1 || true
+      systemctl disable "$svc" >/dev/null 2>&1 || true
+      systemctl mask "$svc" >/dev/null 2>&1 || true
+    fi
+  done
+
+  # Clear any failed state noise
+  systemctl reset-failed >/dev/null 2>&1 || true
+  systemctl daemon-reload || true
+else
+  # SysV-style fallback for very old images (best-effort)
+  for svc in wspr-service wspr-service-reload wspr-server-checkin wspr-utility-button wspr-boot-config wspr; do
+    service "$svc" stop >/dev/null 2>&1 || true
+    update-rc.d -f "$svc" remove >/dev/null 2>&1 || true
+  done
+fi
+
+# Belt-and-suspenders: kill any stragglers started outside systemd
+pkill -x wspr                     >/dev/null 2>&1 || true
+pkill -f 'rtlsdr-wsprd'          >/dev/null 2>&1 || true
+pkill -f '/scripts/wspr_control\.py'   >/dev/null 2>&1 || true
+pkill -f '/scripts/server_checkin\.py' >/dev/null 2>&1 || true
+pkill -f '/scripts/utility-button\.py' >/dev/null 2>&1 || true
+
 # --- (A) Ensure required packages / services for first-boot & SSH are present ---
 if command -v apt-get >/dev/null 2>&1; then
   # Openssh-server provides sshd + ssh-keygen -A (for first-boot regen)
@@ -38,8 +81,10 @@ fi
 systemctl enable ssh >/dev/null 2>&1 || true
 
 # --- (B) Clean apt caches
-apt-get clean
-apt-get autoremove -y || true
+if command -v apt-get >/dev/null 2>&1; then
+  apt-get clean || true
+  apt-get autoremove -y || true
+fi
 
 # --- (C) Remove log files but keep directory structure
 if [[ -d /var/log ]]; then

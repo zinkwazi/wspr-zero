@@ -229,6 +229,31 @@ ensure_ssh_host_keys() {
   if [[ -d /boot ]]; then : > /boot/ssh; fi
 }
 
+# --- Set US California locale & timezone ---
+export DEBIAN_FRONTEND=noninteractive
+
+# Make sure locales is present
+apt-get update -y || true
+apt-get install -y --no-install-recommends locales || true
+
+# Enable en_US.UTF-8 and generate it
+sed -i -E 's/^#\s*(en_US\.UTF-8 UTF-8)/\1/' /etc/locale.gen
+locale-gen
+
+# Set system defaults (avoid setting LC_ALL persistently)
+update-locale LANG=en_US.UTF-8 LC_MESSAGES=en_US.UTF-8 LC_TIME=en_US.UTF-8
+
+# Set timezone to California (Pacific Time)
+if command -v timedatectl >/dev/null 2>&1; then
+  timedatectl set-timezone America/Los_Angeles
+else
+  ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime
+  printf '%s\n' America/Los_Angeles > /etc/timezone
+fi
+
+# (Optional) remove any stray hard-coded LC_* overrides that might conflict
+sed -i -E '/^(LANG|LC_.*)=/d' /etc/environment /etc/profile.d/*.sh 2>/dev/null || true
+
 # call it early so remote access is available even if the rest fails later
 ensure_ssh_host_keys
 
