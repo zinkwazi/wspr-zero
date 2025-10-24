@@ -60,7 +60,7 @@ def transmit():
         "-r", "-o", "-f",       # preserved (skip NTP per your workflow)
         call_sign,
         grid_location,
-        "23"
+        "20"
     ] + tx_band_frequencies
 
     tx_log_file = os.path.join(LOG_DIR, "wspr-transmit.log")
@@ -161,7 +161,7 @@ def start_child_from(cfg):
         elif not isinstance(tx, (list, tuple)):
             tx = [str(tx)]
 
-        cmd = [WSPR_BIN, "-r", "-o", "-f", cfg["call_sign"], cfg["maidenhead_grid"], "23"] + list(tx)
+        cmd = [WSPR_BIN, "-r", "-o", "-f", cfg["call_sign"], cfg["maidenhead_grid"], "20"] + list(tx)
         log_path = os.path.join(LOG_DIR, "wspr-transmit.log")
     elif tor == "receive":
         cmd = [RTLSDR_BIN, "-f", cfg["rx_band_frequency"], "-c", cfg["call_sign"], "-l",
