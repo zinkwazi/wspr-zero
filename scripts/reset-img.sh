@@ -107,12 +107,44 @@ fi
 # Remove the WSPR-zero clock calibration file
 rm -f /var/lib/wspr-zero/f_pwm_clk || true
 
-# --- (F) Remove only the 'pi' user's SSH keys/config (leave other users alone)
+# --- (F) Remove the 'pi' account so Raspberry Pi Imager can recreate it
+# IMPORTANT: do not run this while logged in as 'pi'
 if id -u pi >/dev/null 2>&1; then
-  PI_HOME="$(getent passwd pi | cut -d: -f6)"
-  if [[ -n "${PI_HOME:-}" && -d "$PI_HOME/.ssh" ]]; then
-    chmod -R u+rwX "$PI_HOME/.ssh" || true
-    rm -rf -- "$PI_HOME/.ssh"
+  # Refuse to proceed if the interactive or sudo-invoking user is 'pi'
+  if [[ "${SUDO_USER:-}" == "pi" ]] || [[ "$(logname 2>/dev/null || echo '')" == "pi" ]]; then
+    echo "Refusing to remove 'pi' while the current session user is 'pi'."
+    echo "Log in as root or another user and re-run."
+    exit 1
+  fi
+
+  echo "Removing 'pi' user so first-boot can recreate it…"
+
+  # Stop anything still running as 'pi'
+  pkill -u pi  >/dev/null 2>&1 || true
+
+  # Clear 'pi' crontab (both crontab and spool, if present)
+  crontab -r -u pi 2>/dev/null || true
+  rm -f /var/spool/cron/crontabs/pi 2>/dev/null || true
+
+  # Remove the common sudoers exception for 'pi'
+  rm -f /etc/sudoers.d/010_pi-nopasswd 2>/dev/null || true
+
+  # Reassign ownership of WSPR-zero dirs if they were owned by 'pi'
+  chown -R root:root /opt/wsprzero 2>/dev/null || true
+  chown -R root:root /var/lib/wspr-zero 2>/dev/null || true
+
+  # Mailbox and AccountsService residue
+  rm -f /var/mail/pi 2>/dev/null || true
+  rm -f /var/lib/AccountsService/users/pi 2>/dev/null || true
+
+  # Remove subuid/subgid mappings if present
+  sed -i '/^pi:/d' /etc/subuid 2>/dev/null || true
+  sed -i '/^pi:/d' /etc/subgid 2>/dev/null || true
+
+  # Delete the user (and home), then the group if empty
+  userdel -r pi 2>/dev/null || deluser --remove-home pi 2>/dev/null || true
+  if getent group pi >/dev/null 2>&1; then
+    groupdel pi 2>/dev/null || true
   fi
 fi
 
