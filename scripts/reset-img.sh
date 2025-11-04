@@ -208,6 +208,23 @@ rm -f /boot/firmware/userconf.txt /boot/userconf.txt 2>/dev/null || true
 rm -f /boot/firmware/hostname /boot/hostname 2>/dev/null || true
 rm -f /boot/firmware/wpa_supplicant.conf /boot/wpa_supplicant.conf 2>/dev/null || true
 
+# --- (O) Reset locale and re-arm first-boot timezone auto-detect
+# Clear static locale so first boot isn't pinned to your build locale
+rm -f /etc/default/locale 2>/dev/null || true
+# Scrub any LC_* and LANG in /etc/environment so shells don't inherit stale values
+if [[ -f /etc/environment ]]; then
+  sed -i '/^LC_/d' /etc/environment 2>/dev/null || true
+  sed -i '/^LANG=/d' /etc/environment 2>/dev/null || true
+fi
+
+# Make sure the auto-timezone runs on the next boot (and keeps trying until online)
+rm -f /var/lib/wspr/auto-tz.done 2>/dev/null || true
+systemctl enable wspr-auto-tz.service >/dev/null 2>&1 || true
+
+# Optional: do NOT delete /etc/localtime; the service will overwrite if needed
+# Optional: if you previously silenced cloud-init's locale banner, undo that
+rm -f /var/lib/cloud/instance/locale-check.skip 2>/dev/null || true
+
 # Final sync and poweroff
 echo "Cleanup complete. Ready for Raspberry Pi Imager 'Use custom image'. Powering off in 3 seconds..."
 sleep 3
