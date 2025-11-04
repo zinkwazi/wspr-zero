@@ -11,7 +11,7 @@ LOG_FILE = os.path.join(LOG_DIR, "wspr-zero-shutdown.log")
 BUTTON_PIN = int(os.environ.get("WSPR_BUTTON_PIN", "19"))
 LED_PIN    = int(os.environ.get("WSPR_LED_PIN", "18"))
 
-PRESS_INTERVAL = float(os.environ.get("WSPR_PRESS_WINDOW", "6"))  # seconds for multi-press window
+PRESS_INTERVAL = float(os.environ.get("WSPR_PRESS_WINDOW", "12"))  # seconds for multi-press window
 HOLD_TIME      = float(os.environ.get("WSPR_HOLD_TIME", "10"))    # long hold to shutdown
 DELAY_START    = 5                                                # give the system a moment on boot
 
@@ -52,6 +52,8 @@ _safe_chmod(LOG_FILE, 0o664)
 
 logging.basicConfig(filename=LOG_FILE, level=logging.INFO,
                     format="%(asctime)s %(message)s")
+logging.info(f"Config: BUTTON_PIN={BUTTON_PIN} LED_PIN={LED_PIN} "
+             f"PRESS_WINDOW={int(PRESS_INTERVAL)}s HOLD_TIME={int(HOLD_TIME)}s")
 
 # ------------- GPIO & LED helpers -------------
 GPIO.setmode(GPIO.BCM)
@@ -115,8 +117,13 @@ def _stop_wspr_once():
         except Exception as e:
             logging.info(f"Failed to stop {SERVICE_NAME}: {e}")
         service_paused_for_sequence = True
-        # Try to claim LED now that service is stopped
-        try_claim_led(initial_low=True)
+        # Give systemd a beat to fully tear down child; then try to claim LED
+        time.sleep(1.0)
+        for _ in range(5):            # up to ~1s additional retry
+            try_claim_led(initial_low=True)
+            if _led_ok:
+                break
+            time.sleep(0.2)
         _blink(4, 0.08)  # quick visual ack if LED available
 
 def _restart_wspr_if_needed():
@@ -159,7 +166,8 @@ def button_callback(channel):
                 logging.info(f"Failed to start check-in service: {e}")
             # Reset press counter for next sequence
             button_presses = 0
-
+            sequence_deadline = 0.0
+            last_press_time = 0.0
     else:
         # On release, check for long-hold shutdown (single press held)
         if last_press_time:
@@ -172,10 +180,16 @@ def button_callback(channel):
                     action_taken_in_sequence = True
                 except Exception as e:
                     logging.info(f"Shutdown command failed: {e}")
-        # we keep last_press_time as-is; the deadline logic will resolve restart
+                    # reset + resume normal operation right away
+                    action_taken_in_sequence = False
+                    _restart_wspr_if_needed()
+                    button_presses = 0
+                    sequence_deadline = 0.0
+                    last_press_time = 0.0
+        # we keep last_press_time as-is for non-hold cases; the window logic handles restart
 
 # Use BOTH so we see press (FALLING) and release (RISING) for hold timing
-GPIO.add_event_detect(BUTTON_PIN, GPIO.BOTH, callback=button_callback, bouncetime=200)
+GPIO.add_event_detect(BUTTON_PIN, GPIO.BOTH, callback=button_callback, bouncetime=120)
 
 try:
     logging.info(f"Utility button monitor started. Hold {int(HOLD_TIME)}s to shutdown; press 5× for setup.")
