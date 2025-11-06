@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import RPi.GPIO as GPIO
-import os, time, logging, pwd, subprocess, shutil
+import os, time, logging, pwd, subprocess, shutil, threading
 
 # ---------------- config ----------------
 WSPR_DEFAULT_USER = "wsprzero"
@@ -107,16 +107,21 @@ sequence_deadline = 0.0
 
 service_paused_for_sequence = False   # we stopped wspr-service on first press
 action_taken_in_sequence    = False   # setup or shutdown occurred
+button_is_down              = False   # tracks physical button state for hold logic
+_service_pause_inflight     = False   # async worker currently trying to pause service
 
 def _stop_wspr_once():
-    global service_paused_for_sequence
-    if not service_paused_for_sequence:
+    global service_paused_for_sequence, _service_pause_inflight
+    if service_paused_for_sequence or _service_pause_inflight:
+        return
+
+    def worker():
+        global _service_pause_inflight
         logging.info("First press detected: stopping WSPR service to free LED pin.")
         try:
             subprocess.Popen(SERVICE_STOP_CMD)
         except Exception as e:
             logging.info(f"Failed to stop {SERVICE_NAME}: {e}")
-        service_paused_for_sequence = True
         # Give systemd a beat to fully tear down child; then try to claim LED
         time.sleep(1.0)
         for _ in range(5):            # up to ~1s additional retry
@@ -125,6 +130,11 @@ def _stop_wspr_once():
                 break
             time.sleep(0.2)
         _blink(4, 0.08)  # quick visual ack if LED available
+        _service_pause_inflight = False
+
+    service_paused_for_sequence = True
+    _service_pause_inflight = True
+    threading.Thread(target=worker, daemon=True).start()
 
 def _restart_wspr_if_needed():
     global service_paused_for_sequence
@@ -138,11 +148,13 @@ def _restart_wspr_if_needed():
 
 # ------------- button ISR -------------
 def button_callback(channel):
-    global button_presses, last_press_time, sequence_deadline, action_taken_in_sequence
+    global button_presses, last_press_time, sequence_deadline
+    global action_taken_in_sequence, button_is_down, service_paused_for_sequence
     now = time.time()
     pressed = (GPIO.input(channel) == 0)  # active-low
 
     if pressed:
+        button_is_down = True
         # New sequence if window expired
         if now > sequence_deadline:
             button_presses = 0
@@ -162,6 +174,8 @@ def button_callback(channel):
             try:
                 subprocess.Popen(CHECKIN_SERVICE_CMD)  # non-blocking
                 action_taken_in_sequence = True
+                # Setup mode owns service lifecycle; allow future sequences to stop it again
+                service_paused_for_sequence = False
             except Exception as e:
                 logging.info(f"Failed to start check-in service: {e}")
             # Reset press counter for next sequence
@@ -169,6 +183,7 @@ def button_callback(channel):
             sequence_deadline = 0.0
             last_press_time = 0.0
     else:
+        button_is_down = False
         # On release, check for long-hold shutdown (single press held)
         if last_press_time:
             held = now - last_press_time
@@ -178,6 +193,7 @@ def button_callback(channel):
                 try:
                     subprocess.Popen(SHUTDOWN_CMD)
                     action_taken_in_sequence = True
+                    service_paused_for_sequence = False
                 except Exception as e:
                     logging.info(f"Shutdown command failed: {e}")
                     # reset + resume normal operation right away
@@ -196,7 +212,13 @@ try:
     # Main loop checks sequence timeouts and restarts WSPR if needed
     while True:
         now = time.time()
-        if service_paused_for_sequence and not action_taken_in_sequence and now > sequence_deadline and sequence_deadline > 0:
+        if (
+            service_paused_for_sequence
+            and not action_taken_in_sequence
+            and not button_is_down
+            and sequence_deadline > 0
+            and now > sequence_deadline
+        ):
             # No setup/hold happened within the window → resume WSPR automatically
             _restart_wspr_if_needed()
             # Reset for next sequence
