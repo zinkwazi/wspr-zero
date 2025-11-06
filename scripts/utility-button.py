@@ -83,6 +83,19 @@ except Exception as e:
     _led_ok = False
     logging.info(f"LED init failed on GPIO{LED_PIN}: {e}. Will retry after first button press.")
 
+def release_led_for_setup():
+    """Give ownership of the LED back so setup/check-in can drive it."""
+    global _led_ok
+    if not _led_ok:
+        return
+    try:
+        GPIO.cleanup(LED_PIN)
+        logging.info(f"LED on GPIO{LED_PIN} released for setup service.")
+    except Exception as e:
+        logging.info(f"Failed to release LED on GPIO{LED_PIN}: {e}")
+    finally:
+        _led_ok = False
+
 def _led_on():
     if _led_ok:
         try: GPIO.output(LED_PIN, True)
@@ -172,6 +185,7 @@ def button_callback(channel):
         if button_presses >= 5 and not action_taken_in_sequence:
             logging.info("5 presses detected: starting setup check-in service.")
             try:
+                release_led_for_setup()
                 subprocess.Popen(CHECKIN_SERVICE_CMD)  # non-blocking
                 action_taken_in_sequence = True
                 # Setup mode owns service lifecycle; allow future sequences to stop it again
