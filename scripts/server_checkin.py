@@ -47,8 +47,14 @@ log_file = os.path.join(log_dir, 'setup-post.log')
 # Polling window
 CHECKIN_WINDOW = int(os.environ.get("WSPR_CHECKIN_WINDOW", "60"))    # seconds
 POLL_INTERVAL  = float(os.environ.get("WSPR_POLL_INTERVAL", "3"))    # seconds
+IDLE_EXIT_AFTER = float(os.environ.get("WSPR_CHECKIN_IDLE_EXIT", "10"))  # seconds with no updates before exiting early
+MIN_SESSION_TIME = float(os.environ.get("WSPR_CHECKIN_MIN_SESSION", "6"))  # allow at least this many seconds before idle exit
 if CHECKIN_WINDOW < POLL_INTERVAL + 3:
     CHECKIN_WINDOW = int(POLL_INTERVAL + 3)
+if IDLE_EXIT_AFTER < 1:
+    IDLE_EXIT_AFTER = 1.0
+if MIN_SESSION_TIME < 0:
+    MIN_SESSION_TIME = 0.0
 
 def safe_chown(path, uid, gid):
     try: os.chown(path, uid, gid)
@@ -271,6 +277,8 @@ def main():
     deadline = time.monotonic() + CHECKIN_WINDOW
     prev_hash = None
     i = 1
+    session_start = time.monotonic()
+    last_change = session_start
     while time.monotonic() < deadline:
         server_response = send_data_to_server(mac_only, label=f"POLL {i} (MAC-only)")
         if server_response:
@@ -278,9 +286,19 @@ def main():
             if h and h != prev_hash:
                 write_wspr_config(wspr_config, server_response)
                 prev_hash = h
+                last_change = time.monotonic()
         remaining = deadline - time.monotonic()
         if remaining <= 0: break
         time.sleep(min(POLL_INTERVAL, max(0.05, remaining)))
+        if (
+            time.monotonic() - last_change >= IDLE_EXIT_AFTER
+            and time.monotonic() - session_start >= MIN_SESSION_TIME
+        ):
+            log_message(
+                "Exiting early due to inactivity during setup polling: "
+                f"idle {time.monotonic() - last_change:.1f}s"
+            )
+            break
         i += 1
 
     # Final fetch
