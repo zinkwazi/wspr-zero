@@ -45,7 +45,7 @@ log_dir = '/opt/wsprzero/wspr-zero/logs'
 log_file = os.path.join(log_dir, 'setup-post.log')
 
 # Polling window
-CHECKIN_WINDOW = int(os.environ.get("WSPR_CHECKIN_WINDOW", "60"))    # seconds
+CHECKIN_WINDOW = int(os.environ.get("WSPR_CHECKIN_WINDOW", "45"))    # seconds
 POLL_INTERVAL  = float(os.environ.get("WSPR_POLL_INTERVAL", "3"))    # seconds
 IDLE_EXIT_AFTER = float(os.environ.get("WSPR_CHECKIN_IDLE_EXIT", "10"))  # seconds with no updates before exiting early
 MIN_SESSION_TIME = float(os.environ.get("WSPR_CHECKIN_MIN_SESSION", "6"))  # allow at least this many seconds before idle exit
