@@ -70,9 +70,7 @@ pkill -f '/scripts/utility-button\.py' >/dev/null 2>&1 || true
 
 # --- (A) Ensure required packages / services for first-boot & SSH are present ---
 if command -v apt-get >/dev/null 2>&1; then
-  # Openssh-server provides sshd + ssh-keygen -A (for first-boot regen)
-  # raspberrypi-sys-mods/raspi-config carry the first-boot importers used by Imager
-  apt-get update -y || true
+  apt-get update || true
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     openssh-server raspberrypi-sys-mods raspi-config || true
 fi
@@ -84,6 +82,7 @@ systemctl enable ssh >/dev/null 2>&1 || true
 if command -v apt-get >/dev/null 2>&1; then
   apt-get clean || true
   apt-get autoremove -y || true
+  rm -rf /var/lib/apt/lists/* || true
 fi
 
 # --- (C) Remove log files but keep directory structure
@@ -143,11 +142,10 @@ rm -f /etc/wpa_supplicant/wpa_supplicant.conf
 rm -f /etc/NetworkManager/system-connections/*.nmconnection 2>/dev/null || true
 
 # --- (J) Reset machine identity so first boot generates fresh IDs
-truncate -s 0 /etc/machine-id
-rm -f /var/lib/dbus/machine-id || true
+rm -f /etc/machine-id /var/lib/dbus/machine-id || true
 
 # --- (K) Reset system SSH host keys (regenerated on first boot)
-#rm -f /etc/ssh/ssh_host_* || true
+rm -f /etc/ssh/ssh_host_* || true
 
 # --- (L) Headless-enable flag: allow SSH even if user forgets to tick it in Imager
 if [[ -d /boot/firmware ]]; then
@@ -168,7 +166,7 @@ rm -f /boot/firmware/userconf.txt /boot/userconf.txt 2>/dev/null || true
 rm -f /boot/firmware/hostname /boot/hostname 2>/dev/null || true
 rm -f /boot/firmware/wpa_supplicant.conf /boot/wpa_supplicant.conf 2>/dev/null || true
 
-# --- (NO) Reset locale and re-arm first-boot timezone auto-detect
+# --- (NOP) Reset locale and re-arm first-boot timezone auto-detect
 # Clear static locale so first boot isn't pinned to your build locale
 rm -f /etc/default/locale 2>/dev/null || true
 # Scrub any LC_* and LANG in /etc/environment so shells don't inherit stale values
@@ -181,8 +179,9 @@ fi
 rm -f /var/lib/wspr/auto-tz.done 2>/dev/null || true
 systemctl enable wspr-auto-tz.service >/dev/null 2>&1 || true
 
-rm -f /var/lib/cloud/instance/locale-check.skip 2>/dev/null || true
-
+if dpkg -s cloud-init >/dev/null 2>&1; then
+  rm -f /var/lib/cloud/instance/locale-check.skip 2>/dev/null || true
+fi
 # Final sync and poweroff
 echo "Cleanup complete. Ready for Raspberry Pi Imager 'Use custom image'. Powering off in 3 seconds..."
 sleep 3
